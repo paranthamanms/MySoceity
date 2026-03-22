@@ -1,0 +1,196 @@
+<div class="marketplace-container">
+  <!-- Marketplace Header -->
+  <header class="marketplace-header">
+    <div class="header-content">
+      <div class="header-left">
+        <div class="logo-section">
+          <img src="assets/images/logo.svg" alt="NammaSociety Logo" class="logo-image">
+          <span class="logo-text">NammaSociety</span>
+        </div>
+      </div>
+      
+      <div class="marketplace-logo">
+        <h1>🛍️ NammaSociety MarketPlace</h1>
+        <p>Shop within your community</p>
+      </div>
+      
+      <div class="header-actions">
+        <button class="seller-btn" (click)="openSellerPortal()">
+          🏪 Become a Seller
+        </button>
+        <div class="user-info">
+          <span>{{ user?.username }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Back to Dashboard Button Panel -->
+    <div class="back-to-dashboard-panel">
+      <button class="back-btn" (click)="backToDashboard()">
+        <span>← Back to Dashboard</span>
+      </button>
+    </div>
+    
+    <!-- Navigation Tabs -->
+    <nav class="marketplace-nav">
+      <button 
+        class="nav-tab" 
+        [class.active]="activeView === 'browse'"
+        (click)="switchView('browse')">
+        🏬 Browse & Buy
+      </button>
+      <button 
+        class="nav-tab" 
+        [class.active]="activeView === 'cart'"
+        (click)="switchView('cart')">
+        🛒 Cart <span class="cart-badge" *ngIf="getCartItemCount() > 0">{{ getCartItemCount() }}</span>
+      </button>
+      <button 
+        class="nav-tab" 
+        [class.active]="activeView === 'orders'"
+        (click)="switchView('orders')">
+        📦 My Orders
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main class="marketplace-main">
+    <!-- Browse Products View -->
+    <div class="content-section" *ngIf="activeView === 'browse'">
+      <!-- Search Bar -->
+      <div class="search-section">
+        <input 
+          type="text" 
+          class="search-input" 
+          placeholder="Search products..."
+          [(ngModel)]="searchQuery" name="marketplaceSearch">
+        <button class="search-btn">🔍 Search</button>
+      </div>
+      
+      <!-- Category Filter -->
+      <div class="category-section">
+        <h3>Categories</h3>
+        <div class="category-grid">
+          <button 
+            *ngFor="let category of categories"
+            class="category-btn"
+            [class.active]="selectedCategory === category.id"
+            (click)="selectCategory(category.id)">
+            <span class="category-icon">{{ category.icon }}</span>
+            <span class="category-name">{{ category.name }}</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Product Grid -->
+      <div class="products-section">
+        <h3>Products ({{ getFilteredProducts().length }})</h3>
+        <div class="product-grid">
+          <div *ngFor="let product of getFilteredProducts()" class="product-card">
+            <div class="product-image">
+              <img [src]="product.imageUrl" [alt]="product.name" 
+                   onerror="this.src='assets/images/product-placeholder.png'">
+            </div>
+            <div class="product-info">
+              <h4>{{ product.name }}</h4>
+              <p class="product-description">{{ product.description }}</p>
+              <div class="product-rating">
+                <span class="stars">⭐ {{ product.rating }}</span>
+                <span class="reviews">({{ product.reviews }} reviews)</span>
+              </div>
+              <div class="product-seller">
+                <span>Sold by: {{ product.sellerName }}</span>
+              </div>
+              <div class="product-footer">
+                <div class="price-section">
+                  <span class="price">₹{{ product.price }}</span>
+                  <span class="stock" [class.low-stock]="product.stock < 5">
+                    {{ product.stock > 0 ? 'In Stock (' + product.stock + ')' : 'Out of Stock' }}
+                  </span>
+                </div>
+                <button 
+                  class="add-to-cart-btn" 
+                  [disabled]="product.stock === 0"
+                  (click)="addToCart(product)">
+                  {{ product.stock > 0 ? '🛒 Add to Cart' : 'Out of Stock' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div *ngIf="getFilteredProducts().length === 0" class="no-products">
+          <p>No products found matching your criteria</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cart View -->
+    <div class="content-section" *ngIf="activeView === 'cart'">
+      <h2>Shopping Cart</h2>
+      
+      <div *ngIf="cart.length === 0" class="empty-cart">
+        <div class="empty-icon">🛒</div>
+        <h3>Your cart is empty</h3>
+        <p>Add items from the marketplace to get started</p>
+        <button class="browse-btn" (click)="switchView('browse')">Browse Products</button>
+      </div>
+      
+      <div *ngIf="cart.length > 0" class="cart-content">
+        <div class="cart-items">
+          <div *ngFor="let item of cart" class="cart-item">
+            <img [src]="item.product.imageUrl" [alt]="item.product.name" 
+                 onerror="this.src='assets/images/product-placeholder.png'">
+            <div class="item-details">
+              <h4>{{ item.product.name }}</h4>
+              <p class="item-seller">Sold by: {{ item.product.sellerName }}</p>
+              <p class="item-price">₹{{ item.product.price }} each</p>
+            </div>
+            <div class="item-quantity">
+              <button class="qty-btn" (click)="updateQuantity(item.product.id, -1)">-</button>
+              <span class="qty-value">{{ item.quantity }}</span>
+              <button class="qty-btn" (click)="updateQuantity(item.product.id, 1)">+</button>
+            </div>
+            <div class="item-total">
+              <p class="total-price">₹{{ item.product.price * item.quantity }}</p>
+              <button class="remove-btn" (click)="removeFromCart(item.product.id)">🗑️ Remove</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="cart-summary">
+          <h3>Order Summary</h3>
+          <div class="summary-row">
+            <span>Items ({{ getCartItemCount() }})</span>
+            <span>₹{{ getCartTotal() }}</span>
+          </div>
+          <div class="summary-row">
+            <span>Delivery</span>
+            <span class="free">FREE</span>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="summary-total">
+            <span>Total</span>
+            <span>₹{{ getCartTotal() }}</span>
+          </div>
+          <button class="checkout-btn" (click)="checkout()">
+            💳 Proceed to Checkout
+          </button>
+          <p class="payment-info">Payment via CCAvenue Gateway</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orders View -->
+    <div class="content-section" *ngIf="activeView === 'orders'">
+      <h2>My Orders</h2>
+      <div class="orders-placeholder">
+        <div class="placeholder-icon">📦</div>
+        <h3>No orders yet</h3>
+        <p>Your order history will appear here</p>
+        <button class="browse-btn" (click)="switchView('browse')">Start Shopping</button>
+      </div>
+    </div>
+  </main>
+</div>

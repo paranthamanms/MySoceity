@@ -1,0 +1,56 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="100" fill="url(#gradient)"/>
+  
+  <!-- Define Gradient -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f0f0f0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Building/Community Icon -->
+  <g id="building">
+    <!-- Main structure -->
+    <rect x="45" y="50" width="110" height="100" fill="none" stroke="white" stroke-width="2" rx="8"/>
+    
+    <!-- Vertical divisions -->
+    <line x1="75" y1="50" x2="75" y2="150" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    <line x1="105" y1="50" x2="105" y2="150" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    <line x1="135" y1="50" x2="135" y2="150" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    
+    <!-- Horizontal divisions -->
+    <line x1="45" y1="75" x2="155" y2="75" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    <line x1="45" y1="100" x2="155" y2="100" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    <line x1="45" y1="125" x2="155" y2="125" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    
+    <!-- Windows (white squares) -->
+    <rect x="52" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    <rect x="65" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    <rect x="78" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    <rect x="91" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    <rect x="104" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    <rect x="117" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    <rect x="130" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    <rect x="143" y="58" width="8" height="8" fill="white" opacity="0.9"/>
+    
+    <!-- Door -->
+    <rect x="88" y="130" width="24" height="20" fill="none" stroke="white" stroke-width="2" rx="2"/>
+    <circle cx="110" cy="140" r="2" fill="white"/>
+    
+    <!-- Roof/Top accent -->
+    <polygon points="45,50 100,25 155,50" fill="none" stroke="white" stroke-width="2"/>
+    <polygon points="100,25 105,35 95,35" fill="white"/>
+  </g>
+  
+  <!-- Decorative circles for "society" concept -->
+  <circle cx="60" cy="170" r="4" fill="white" opacity="0.7"/>
+  <circle cx="100" cy="170" r="4" fill="white" opacity="0.7"/>
+  <circle cx="140" cy="170" r="4" fill="white" opacity="0.7"/>
+  <line x1="60" y1="170" x2="140" y2="170" stroke="white" stroke-width="1" opacity="0.5"/>
+</svg>

@@ -1,0 +1,372 @@
+<div class="user-management-container">
+  <div class="management-header">
+    <h2>User Management</h2>
+    <div class="management-controls">
+      <input 
+        type="text" 
+        class="search-box" 
+        placeholder="Search users by name, email, or society..."
+        [(ngModel)]="searchQuery"
+        (keyup)="filterUsers()">
+      <button class="refresh-btn" (click)="refreshUsers()" [disabled]="isLoading" title="Refresh user list">
+        🔄 Refresh
+      </button>
+      <button class="add-user-btn" (click)="openAddUserModal()">+ Add New User</button>
+    </div>
+  </div>
+
+  <!-- Success/Error Messages -->
+  <div class="message-container">
+    <div class="success-message" *ngIf="successMessage">
+      <span class="icon">✓</span>
+      {{ successMessage }}
+    </div>
+    <div class="error-message" *ngIf="errorMessage">
+      <span class="icon">✕</span>
+      {{ errorMessage }}
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-indicator" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Loading users...</p>
+  </div>
+
+  <div class="users-table-container" *ngIf="!isLoading">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>User Type</th>
+          <th>Tower/Flat</th>
+          <th>Society</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="user-row" *ngFor="let user of paginatedUsers">
+          <td class="username-cell">
+            <span class="user-avatar">{{ user.username.substring(0, 2).toUpperCase() }}</span>
+            {{ user.username }}
+          </td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.phoneNumber }}</td>
+          <td>
+            <span class="user-type-badge" [class]="user.userType.toLowerCase().replace(' ', '-')">
+              {{ user.userType }}
+            </span>
+          </td>
+          <td>{{ user.tower }}/{{ user.flat }}</td>
+          <td class="society-cell">{{ user.societyName }}</td>
+          <td>
+            <span class="status-badge" [class]="user.status.toLowerCase()">
+              {{ user.status }}
+            </span>
+          </td>
+          <td class="action-cell">
+            <button class="action-btn edit" title="Edit User" (click)="editUser(user)">✏️</button>
+            <button class="action-btn view" title="View Details" (click)="viewUserDetails(user)">👁️</button>
+            <button class="action-btn toggle" 
+                    [title]="user.status === 'Active' ? 'Deactivate User' : 'Activate User'"
+                    (click)="toggleUserStatus(user)">
+              {{ user.status === 'Active' ? '⊘' : '✓' }}
+            </button>
+            <button class="action-btn delete" title="Delete User" (click)="deleteUser(user.id)">🗑️</button>
+          </td>
+        </tr>
+        <tr *ngIf="filteredUsers.length === 0" class="no-data">
+          <td colspan="8" class="text-center">
+            <p>No users found matching your search criteria.</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="table-footer" *ngIf="filteredUsers.length > 0">
+      <p>Showing {{ paginatedUsers.length }} of {{ filteredUsers.length }} users (Total: {{ allUsers.length }})</p>
+      <div class="pagination">
+        <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()">← Previous</button>
+        <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+        <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div class="modal-overlay" *ngIf="isModalOpen" (click)="closeModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add New User</h3>
+        <button class="modal-close" (click)="closeModal()">×</button>
+      </div>
+
+      <!-- Modal Messages -->
+      <div class="modal-messages" *ngIf="successMessage || errorMessage">
+        <div class="success-message" *ngIf="successMessage">
+          <span class="icon">✓</span>
+          {{ successMessage }}
+        </div>
+        <div class="error-message" *ngIf="errorMessage">
+          <span class="icon">✕</span>
+          {{ errorMessage }}
+        </div>
+      </div>
+
+      <form class="user-form" (ngSubmit)="submitNewUser()">
+        <div class="form-group">
+          <label>Username *</label>
+          <input 
+            type="text" 
+            [(ngModel)]="newUserForm.username"
+            name="username"
+            placeholder="Enter username" 
+            required>
+        </div>
+
+        <div class="form-group">
+          <label>Email *</label>
+          <input 
+            type="email" 
+            [(ngModel)]="newUserForm.email"
+            name="email"
+            placeholder="Enter email address" 
+            required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone Number *</label>
+            <input 
+              type="tel" 
+              [(ngModel)]="newUserForm.phoneNumber"
+              name="phoneNumber"
+              placeholder="e.g., 9876543210" 
+              pattern="[0-9]{10}"
+              required>
+            <small>10-digit mobile number for SMS notifications</small>
+          </div>
+
+          <div class="form-group">
+            <label>Address</label>
+            <input 
+              type="text" 
+              [(ngModel)]="newUserForm.address"
+              name="address"
+              placeholder="e.g., Flat 101, Tower A">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>User Type *</label>
+            <select 
+              [(ngModel)]="newUserForm.userType"
+              name="userType"
+              required>
+              <option value="">Select Type</option>
+              <option value="Resident Owner">Owner (Resident)</option>
+              <option value="Non-Resident Owner">Owner (Non-Resident)</option>
+              <option value="Tenant">Tenant</option>
+            </select>
+          </div>
+
+          <div class="form-group" *ngIf="newUserForm.userType === 'Resident Owner' || newUserForm.userType === 'Non-Resident Owner'">
+            <label>Owner Type</label>
+            <select 
+              [(ngModel)]="newUserForm.ownerType"
+              name="ownerType">
+              <option value="">Select</option>
+              <option value="Resident" *ngIf="newUserForm.userType === 'Resident Owner'">Resident</option>
+              <option value="Non-Resident" *ngIf="newUserForm.userType === 'Non-Resident Owner'">Non-Resident</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Society Name *</label>
+          <select 
+            [(ngModel)]="newUserForm.societyName"
+            name="societyName"
+            required>
+            <option value="">Select Society</option>
+            <option *ngFor="let society of getFilteredSocieties()" [value]="society.name">{{ society.name }}</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tower Number *</label>
+            <input 
+              type="text" 
+              [(ngModel)]="newUserForm.tower"
+              name="tower"
+              placeholder="e.g., A, B, C" 
+              required>
+          </div>
+
+          <div class="form-group">
+            <label>Flat Number *</label>
+            <input 
+              type="text" 
+              [(ngModel)]="newUserForm.flat"
+              name="flat"
+              placeholder="e.g., 101, 202" 
+              required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Temporary Password *</label>
+          <input 
+            type="password" 
+            [(ngModel)]="newUserForm.password"
+            name="password"
+            placeholder="Enter temporary password" 
+            required>
+          <small>User will be required to change this on first login</small>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" (click)="closeModal()">Cancel</button>
+          <button type="submit" class="btn-submit">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" *ngIf="isEditModalOpen" (click)="closeEditModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Edit User</h3>
+      <button class="modal-close" (click)="closeEditModal()">×</button>
+    </div>
+
+    <!-- Modal Messages -->
+    <div class="modal-messages" *ngIf="successMessage || errorMessage">
+      <div class="success-message" *ngIf="successMessage">
+        <span class="icon">✓</span>
+        {{ successMessage }}
+      </div>
+      <div class="error-message" *ngIf="errorMessage">
+        <span class="icon">✕</span>
+        {{ errorMessage }}
+      </div>
+    </div>
+
+    <form class="user-form" (ngSubmit)="saveEditedUser()" *ngIf="editUserForm">
+      <div class="form-group">
+        <label>Username *</label>
+        <input type="text" [(ngModel)]="editUserForm.username" name="username" required>
+      </div>
+
+      <div class="form-group">
+        <label>Email *</label>
+        <input type="email" [(ngModel)]="editUserForm.email" name="email" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phone Number *</label>
+          <input type="tel" [(ngModel)]="editUserForm.phoneNumber" name="phoneNumber" pattern="[0-9]{10}" required>
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" [(ngModel)]="editUserForm.address" name="address">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>User Type *</label>
+        <select [(ngModel)]="editUserForm.userType" name="userType" required>
+          <option value="Resident Owner">Owner (Resident)</option>
+          <option value="Non-Resident Owner">Owner (Non-Resident)</option>
+          <option value="Tenant">Tenant</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Society Name *</label>
+        <input type="text" [(ngModel)]="editUserForm.societyName" name="societyName" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tower *</label>
+          <input type="text" [(ngModel)]="editUserForm.tower" name="tower" required>
+        </div>
+        <div class="form-group">
+          <label>Flat *</label>
+          <input type="text" [(ngModel)]="editUserForm.flat" name="flat" required>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeEditModal()">Cancel</button>
+        <button type="submit" class="btn-submit">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- View User Details Modal -->
+<div class="modal-overlay" *ngIf="isViewModalOpen" (click)="closeViewModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>User Details</h3>
+      <button class="modal-close" (click)="closeViewModal()">×</button>
+    </div>
+
+    <div class="user-details-view" *ngIf="viewUserData">
+      <div class="detail-row">
+        <span class="detail-label">Username:</span>
+        <span class="detail-value">{{ viewUserData.username }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Email:</span>
+        <span class="detail-value">{{ viewUserData.email }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Phone:</span>
+        <span class="detail-value">{{ viewUserData.phoneNumber }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Address:</span>
+        <span class="detail-value">{{ viewUserData.address }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">User Type:</span>
+        <span class="detail-value">{{ viewUserData.userType }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Society Name:</span>
+        <span class="detail-value">{{ viewUserData.societyName || 'Not specified' }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Tower:</span>
+        <span class="detail-value">{{ viewUserData.tower }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Flat:</span>
+        <span class="detail-value">{{ viewUserData.flat }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Status:</span>
+        <span class="status-badge" [class]="viewUserData.status.toLowerCase()">{{ viewUserData.status }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Registered:</span>
+        <span class="detail-value">{{ viewUserData.registeredDate }}</span>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeViewModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

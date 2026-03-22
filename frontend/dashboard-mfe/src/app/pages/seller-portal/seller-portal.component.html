@@ -1,0 +1,142 @@
+<div class="seller-portal-container">
+  <header class="seller-header">
+    <h1>🏪 NammaSociety Seller Portal</h1>
+    <p *ngIf="!loggedInSeller">Register to start selling in your community</p>
+    <button *ngIf="loggedInSeller" class="logout-btn" (click)="logout()">Logout</button>
+  </header>
+
+  <!-- Login View -->
+  <main class="seller-main" *ngIf="activeView === 'login'">
+    <div class="auth-card">
+      <h2>Seller Login</h2>
+      <form>
+        <div class="form-group">
+          <label>Seller ID</label>
+          <input type="text" [(ngModel)]="sellerId" name="sellerId" placeholder="Enter your Seller ID">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" [(ngModel)]="password" name="loginPassword" placeholder="Enter password">
+        </div>
+        <button type="button" class="primary-btn" (click)="login()">Login</button>
+      </form>
+      <p class="auth-link">
+        Don't have an account? <a (click)="switchView('register')">Register as Seller</a>
+      </p>
+    </div>
+  </main>
+
+  <!-- Register View -->
+  <main class="seller-main" *ngIf="activeView === 'register'">
+    <div class="auth-card">
+      <h2>Seller Registration</h2>
+      <form>
+        <div class="form-group">
+          <label>Business/Seller Name *</label>
+          <input type="text" [(ngModel)]="sellerName" name="registerSellerName" placeholder="Your business name">
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" [(ngModel)]="email" name="registerEmail" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label>Phone *</label>
+          <input type="tel" [(ngModel)]="phone" name="registerPhone" placeholder="Contact number">
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" [(ngModel)]="password" name="registerPassword" placeholder="Create password">
+        </div>
+        <div class="form-group">
+          <label>Confirm Password *</label>
+          <input type="password" [(ngModel)]="confirmPassword" name="registerConfirmPassword" placeholder="Re-enter password">
+        </div>
+        <button type="button" class="primary-btn" (click)="register()">Register</button>
+      </form>
+      <p class="auth-link">
+        Already have an account? <a (click)="switchView('login')">Login</a>
+      </p>
+    </div>
+  </main>
+
+  <!-- Dashboard View -->
+  <main class="seller-main" *ngIf="activeView === 'dashboard'">
+    <div class="dashboard-container">
+      <div class="dashboard-header">
+        <h2>Welcome, {{ loggedInSeller?.sellerName }}!</h2>
+        <button class="add-product-btn" (click)="switchView('addProduct')">+ Add New Product</button>
+      </div>
+
+      <div class="products-list" *ngIf="products.length > 0">
+        <h3>Your Products</h3>
+        <div class="product-grid">
+          <div *ngFor="let product of products" class="product-item">
+            <img [src]="product.imageUrl || 'assets/images/product-placeholder.png'" [alt]="product.name">
+            <div class="product-details">
+              <h4>{{ product.name }}</h4>
+              <p>{{ product.description }}</p>
+              <p class="product-price">₹{{ product.price }}</p>
+              <p class="product-stock">Stock: {{ product.stock }}</p>
+            </div>
+            <button class="delete-btn" (click)="deleteProduct(product.id)">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="products.length === 0">
+        <div class="empty-icon">📦</div>
+        <h3>No products yet</h3>
+        <p>Start adding products to sell in the marketplace</p>
+        <button class="primary-btn" (click)="switchView('addProduct')">Add Your First Product</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Product View -->
+  <main class="seller-main" *ngIf="activeView === 'addProduct'">
+    <div class="add-product-container">
+      <div class="form-header">
+        <h2>Add New Product</h2>
+        <button class="back-btn" (click)="switchView('dashboard')">← Back to Dashboard</button>
+      </div>
+
+      <form>
+        <div class="form-group">
+          <label>Product Name *</label>
+          <input type="text" [(ngModel)]="newProduct.name" name="productName" placeholder="Enter product name">
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [(ngModel)]="newProduct.description" name="productDescription" placeholder="Product description" rows="3"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Price (₹) *</label>
+            <input type="number" [(ngModel)]="newProduct.price" name="productPrice" placeholder="0">
+          </div>
+
+          <div class="form-group">
+            <label>Stock Quantity *</label>
+            <input type="number" [(ngModel)]="newProduct.stock" name="productStock" placeholder="0">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Category</label>
+          <select [(ngModel)]="newProduct.category" name="productCategory">
+            <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Image URL</label>
+          <input type="text" [(ngModel)]="newProduct.imageUrl" name="productImageUrl" placeholder="Product image URL (optional)">
+        </div>
+
+        <button type="button" class="primary-btn" (click)="addProduct()">Add Product</button>
+      </form>
+    </div>
+  </main>
+</div>

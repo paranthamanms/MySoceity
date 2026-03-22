@@ -1,0 +1,10 @@
+{
+  "/api/users": {
+    "target": "http://localhost:8002",
+    "secure": false
+  },
+  "/api/societies": {
+    "target": "http://localhost:8002",
+    "secure": false
+  }
+}

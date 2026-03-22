@@ -1,0 +1,171 @@
+<div class="register-container">
+  <!-- Fixed Header with Logo -->
+  <div class="header-fixed">
+    <div class="header-content">
+      <div class="logo-section">
+        <img src="assets/images/logo.svg" alt="NammaSociety Logo" class="logo-image">
+        <span class="logo-text">NammaSociety</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Register Content -->
+  <div class="register-content">
+    <div class="register-box">
+      <!-- Upper Panel with Logo -->
+      <div class="register-header-panel">
+        <img src="assets/images/logo.svg" alt="NammaSociety Logo" class="panel-logo">
+        <h2 class="panel-title">NammaSociety</h2>
+      </div>
+
+      <div class="register-form-container">
+        <div class="back-section">
+          <button type="button" class="back-btn" (click)="goBack()">
+            ← Back to Login
+          </button>
+        </div>
+
+        <h1>Create Your Account</h1>
+        <p class="subtitle">Join NammaSociety Community</p>
+
+        <form (ngSubmit)="register()" #registerForm="ngForm">
+          <!-- User Type Selection -->
+          <div class="form-group">
+            <label for="userType">User Type *</label>
+            <select id="userType" [(ngModel)]="userType" name="userType" required>
+              <option value="">Select User Type</option>
+              <option value="owner">Owner</option>
+              <option value="tenant">Tenant</option>
+            </select>
+          </div>
+
+          <!-- Owner Type Selection (conditional) -->
+          <div class="form-group" *ngIf="userType === 'owner'">
+            <label for="ownerType">Owner Type *</label>
+            <select id="ownerType" [(ngModel)]="ownerType" name="ownerType">
+              <option value="">Select Owner Type</option>
+              <option value="resident">Resident Owner</option>
+              <option value="nonResident">Non-Resident Owner</option>
+            </select>
+          </div>
+
+          <!-- Society Name -->
+          <div class="form-group">
+            <label for="societyName">Society Name *</label>
+            <input 
+              type="text" 
+              id="societyName" 
+              name="societyName"
+              [(ngModel)]="societyName"
+              placeholder="e.g., Green Heights, Sky Towers"
+              required>
+          </div>
+
+          <!-- Tower Number -->
+          <div class="form-group">
+            <label for="towerNumber">Tower Number *</label>
+            <input 
+              type="text" 
+              id="towerNumber" 
+              name="towerNumber"
+              [(ngModel)]="towerNumber"
+              placeholder="e.g., A, B, Tower 1"
+              required>
+          </div>
+
+          <!-- Flat Number -->
+          <div class="form-group">
+            <label for="flatNumber">Flat Number *</label>
+            <input 
+              type="text" 
+              id="flatNumber" 
+              name="flatNumber"
+              [(ngModel)]="flatNumber"
+              placeholder="e.g., 101, 202"
+              required>
+          </div>
+
+          <!-- Username -->
+          <div class="form-group">
+            <label for="username">Username *</label>
+            <input 
+              type="text" 
+              id="username" 
+              name="username"
+              [(ngModel)]="username"
+              placeholder="Choose a unique username"
+              required>
+          </div>
+
+          <!-- Email -->
+          <div class="form-group">
+            <label for="email">Email *</label>
+            <input 
+              type="email" 
+              id="email" 
+              name="email"
+              [(ngModel)]="email"
+              placeholder="Enter your email address"
+              required>
+          </div>
+
+          <!-- Password -->
+          <div class="form-group">
+            <label for="password">Password *</label>
+            <input 
+              type="password" 
+              id="password" 
+              name="password"
+              [(ngModel)]="password"
+              placeholder="Create a strong password"
+              required>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="form-group">
+            <label for="confirmPassword">Confirm Password *</label>
+            <input 
+              type="password" 
+              id="confirmPassword" 
+              name="confirmPassword"
+              [(ngModel)]="confirmPassword"
+              placeholder="Confirm your password"
+              required>
+          </div>
+
+          <!-- Error Message -->
+          <div class="error-message" *ngIf="error">
+            <p>{{ error }}</p>
+          </div>
+
+          <!-- Success Message -->
+          <div class="success-message" *ngIf="successMessage">
+            <p>{{ successMessage }}</p>
+          </div>
+
+          <!-- Register Button -->
+          <button 
+            type="submit" 
+            class="register-btn"
+            [disabled]="loading">
+            {{ loading ? 'Creating Account...' : 'Create Account' }}
+          </button>
+        </form>
+
+        <div class="login-link">
+          <p>Already have an account? 
+            <a href="javascript:void(0)" (click)="goBack()">Login here</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Background Image -->
+    <div class="background-image"></div>
+  </div>
+
+  <!-- Footer with Copyright -->
+  <footer class="page-footer">
+    <p>&copy; 2026 NammaSociety-AMP. All Rights Reserved.</p>
+  </footer>
+</div>

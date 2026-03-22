@@ -1,0 +1,166 @@
+<div class="audit-logs-container">
+  <div class="logs-header">
+    <h2>Audit Logs</h2>
+    <div class="logs-controls">
+      <select class="filter-select" [(ngModel)]="filterType" (change)="applyFilters()">
+        <option value="">All Event Types</option>
+        <option value="login">Login</option>
+        <option value="register">Registration</option>
+        <option value="logout">Logout</option>
+        <option value="profile_update">Profile Update</option>
+        <option value="admin_action">Admin Action</option>
+        <option value="password_change">Password Change</option>
+        <option value="system_error">System Error</option>
+      </select>
+
+      <select class="filter-select" [(ngModel)]="filterService" (change)="onServiceChange()">
+        <option value="">All Services</option>
+        <option value="auth-service">Auth Service</option>
+        <option value="user-service">User Service</option>
+        <option value="login-mfe">Login MFE</option>
+        <option value="register-mfe">Register MFE</option>
+        <option value="dashboard-mfe">Dashboard MFE</option>
+        <option value="host-app">Host App</option>
+      </select>
+
+      <input 
+        type="text" 
+        class="logs-search" 
+        placeholder="Search logs..."
+        [(ngModel)]="searchQuery"
+        (keyup)="applyFilters()">
+
+      <button class="refresh-btn" (click)="refreshLogs()" [disabled]="isLoading">🔄 Refresh</button>
+      <button class="export-btn" (click)="exportLogs()">📥 Export</button>
+      <div class="view-toggle">
+        <button class="toggle-btn" [class.active]="viewMode === 'timeline'" (click)="setViewMode('timeline')">
+          Timeline
+        </button>
+        <button class="toggle-btn" [class.active]="viewMode === 'grouped'" (click)="setViewMode('grouped')">
+          Grouped
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="service-stats" *ngIf="serviceStats.length > 0">
+    <div class="stat-card" *ngFor="let stat of serviceStats">
+      <div class="stat-title">{{ stat.displayName }}</div>
+      <div class="stat-value">{{ stat.count }}</div>
+      <div class="stat-subtitle">Events</div>
+    </div>
+  </div>
+
+  <div class="diff-toolbar">
+    <div class="diff-status">
+      <span>Diff View:</span>
+      <strong *ngIf="selectedLogs.length !== 2">Select any 2 logs to compare</strong>
+      <strong *ngIf="selectedLogs.length === 2">Comparing 2 selected logs</strong>
+    </div>
+    <button class="clear-selection-btn" (click)="clearSelection()" [disabled]="selectedLogs.length === 0">
+      Clear Selection
+    </button>
+  </div>
+
+  <div class="logs-timeline" *ngIf="viewMode === 'timeline'">
+    <div class="log-entry" *ngFor="let log of pagedLogs" [class]="'log-' + log.eventTypeClass">
+      <div class="select-log">
+        <label>
+          <input type="checkbox" [checked]="isSelected(log)" (change)="toggleSelection(log)">
+          Compare
+        </label>
+      </div>
+      <div class="log-time">
+        <div class="time-dot"></div>
+        <div class="time-info">
+          <div class="time-header">
+            <span class="time-badge {{ log.eventTypeClass }}">{{ log.eventType }}</span>
+            <span class="time-value">{{ log.timestamp }}</span>
+          </div>
+          <p class="log-description">{{ log.description }}</p>
+          <div class="log-details">
+            <span class="detail-item"><strong>User:</strong> {{ log.user }}</span>
+            <span class="detail-item"><strong>Service:</strong> {{ log.serviceDisplayName }}</span>
+            <span class="detail-item"><strong>IP:</strong> {{ log.ipAddress }}</span>
+            <span class="detail-item" *ngIf="log.details"><strong>Details:</strong> {{ log.details }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="logs-grouped" *ngIf="viewMode === 'grouped'">
+    <div class="service-group" *ngFor="let group of groupedLogs">
+      <div class="service-header">
+        <div class="service-title">{{ group.displayName }}</div>
+        <div class="service-count">{{ group.logs.length }} events</div>
+      </div>
+      <div class="service-list">
+        <div class="service-log" *ngFor="let log of group.logs">
+          <div class="select-log">
+            <label>
+              <input type="checkbox" [checked]="isSelected(log)" (change)="toggleSelection(log)">
+              Compare
+            </label>
+          </div>
+          <div class="service-log-badge {{ log.eventTypeClass }}">{{ log.eventType }}</div>
+          <div class="service-log-text">
+            <span class="service-log-time">{{ log.timestamp }}</span>
+            <span class="service-log-desc">{{ log.description }}</span>
+          </div>
+          <div class="service-log-meta">
+            <span>User: {{ log.user }}</span>
+            <span>IP: {{ log.ipAddress }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="diff-view" *ngIf="selectedLogs.length === 2">
+    <div class="diff-panel">
+      <div class="diff-header">Selected Log A</div>
+      <div class="diff-body">
+        <div class="diff-line" *ngFor="let line of diffLinesLeft" [class.removed]="line.type === 'removed'" [class.empty]="line.type === 'empty'">
+          {{ line.text || ' ' }}
+        </div>
+      </div>
+    </div>
+    <div class="diff-panel">
+      <div class="diff-header">Selected Log B</div>
+      <div class="diff-body">
+        <div class="diff-line" *ngFor="let line of diffLinesRight" [class.added]="line.type === 'added'" [class.empty]="line.type === 'empty'">
+          {{ line.text || ' ' }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="logs-footer" *ngIf="filteredLogs.length > 0">
+    <p>Showing {{ filteredLogs.length }} of {{ allLogs.length }} logs</p>
+    <div class="pagination">
+      <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()">← Previous</button>
+      <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+      <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">Next →</button>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="!isLoading && !errorMessage && filteredLogs.length === 0">
+    <div class="empty-icon">📭</div>
+    <h3>No Audit Logs Found</h3>
+    <p>There are no logs matching your search criteria</p>
+  </div>
+
+  <div class="empty-state" *ngIf="isLoading">
+    <div class="empty-icon">⏳</div>
+    <h3>Loading Audit Logs</h3>
+    <p>Please wait while we fetch the latest events</p>
+  </div>
+
+  <div class="empty-state" *ngIf="errorMessage">
+    <div class="empty-icon">⚠️</div>
+    <h3>Unable to Load Logs</h3>
+    <p>{{ errorMessage }}</p>
+  </div>
+</div>

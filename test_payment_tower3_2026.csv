@@ -1,0 +1,15 @@
+towerNumber,flatNumber,quarterName,quarterPeriod,amount,dueDate,status,societyName
+3,B12,Q1-2026,Jan-Mar 2026,5000,2026-03-31,pending,Baashyaam Crown Residence
+3,B12,Q2-2026,Apr-Jun 2026,5000,2026-06-30,pending,Baashyaam Crown Residence
+3,B11,Q1-2026,Jan-Mar 2026,5000,2026-03-31,paid,Baashyaam Crown Residence
+3,B11,Q2-2026,Apr-Jun 2026,5000,2026-06-30,pending,Baashyaam Crown Residence
+3,B13,Q1-2026,Jan-Mar 2026,6000,2026-03-31,pending,Baashyaam Crown Residence
+3,A10,Q1-2026,Jan-Mar 2026,5500,2026-03-31,pending,Baashyaam Crown Residence
+3,B10,Q1-2026,Jan-Mar 2026,5000,2026-03-31,paid,Baashyaam Crown Residence
+3,B14,Q1-2026,Jan-Mar 2026,5000,2026-03-31,pending,Baashyaam Crown Residence
+1,101,Q1-2026,Jan-Mar 2026,5000,2026-03-31,pending,Baashyaam Crown Residence
+1,102,Q1-2026,Jan-Mar 2026,5000,2026-03-31,paid,Baashyaam Crown Residence
+1,103,Q1-2026,Jan-Mar 2026,5200,2026-03-31,pending,Baashyaam Crown Residence
+2,201,Q1-2026,Jan-Mar 2026,5000,2026-03-31,pending,Baashyaam Crown Residence
+2,202,Q1-2026,Jan-Mar 2026,5000,2026-03-31,paid,Baashyaam Crown Residence
+2,203,Q1-2026,Jan-Mar 2026,5100,2026-03-31,pending,Baashyaam Crown Residence

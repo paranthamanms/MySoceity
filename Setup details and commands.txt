@@ -1,0 +1,86 @@
+aws s3 sync s3://amzn-s3-amp-bucket/frontend/host-app/ ~/nammasociety/frontend/host-app/ --delete
+
+aws s3 sync s3://amzn-s3-amp-bucket/frontend/host-app/ ~/nammasociety/frontend/host-app/
+
+# Sync Login MFE
+aws s3 sync s3://amzn-s3-amp-bucket/frontend/login-mfe/ ~/nammasociety/frontend-dist/login/ --delete
+
+# Sync Dashboard MFE
+aws s3 sync s3://amzn-s3-amp-bucket/frontend/dashboard-mfe/ ~/nammasociety/frontend/dashboard-mfe/ --delete
+
+# Sync Register MFE
+aws s3 sync s3://amzn-s3-amp-bucket/frontend/register-mfe/ ~/nammasociety/frontend/register-mfe/ --delete
+
+ssh -i C:\AMP\Projects\nammasociety-key.pem ubuntu@43.205.126.90
+
+
+aws s3 sync s3://amzn-s3-amp-bucket/frontend/login-mfe ~/nammasociety/frontend/login-mfe --delete
+
+
+
+Bash
+# Sync Host App
+aws s3 sync s3://amzn-s3-amp-bucket/nammasociety/frontend/host-app/ ~/nammasociety/frontend/host-app/
+
+# Sync Login MFE
+aws s3 sync s3://amzn-s3-amp-bucket/nammasociety/frontend/login-mfe/ ~/nammasociety/frontend-dist/login/
+
+# Sync Dashboard MFE
+aws s3 sync s3://amzn-s3-amp-bucket/nammasociety/frontend/dashboard-mfe/ ~/nammasociety/frontend/dashboard-mfe/
+
+# Sync Register MFE
+aws s3 sync s3://amzn-s3-amp-bucket/nammasociety/frontend/register-mfe/ ~/nammasociety/frontend/register-mfe/
+
+docker-compose restart nginx
+
+
+scp -i C:\AMP\Projects\nammasociety-key.pem ubuntu@13.234.20.213:/home/ubuntu/nammasociety/docker-compose.yml C:\AMP\EC2
+
+
+postgres configuration details in my laptop
+
+Database Name: postgres
+Username: postgres
+Password: Chennai@2006
+
+CCAvenue
+
+Email - nammasociety.amp732026@gmail.com
+PWD: Chennai@2026
+Mobile#9176787766
+
+docker desktop
+
+email: nammasociety.amp732026@gmail.com
+username: nammasocietyamp
+pwd: Chennai@2006
+
+
+
+Create a new repository on GitHub (https://github.com/new) and copy the HTTPS URL (e.g., https://github.com/paranthamanms/MySoceity.git).
+
+In your terminal, navigate to your project folder:
+cd C:\AMP\Projects\MySoceity
+
+Initialize git if not already done:
+git init
+
+Add the remote repository:
+git remote add origin https://github.com/paranthamanms/MySoceity.git
+
+Add all files and commit:
+git add .
+git commit -m "Initial commit"
+
+
+Push to GitHub:
+git push -u origin main
+
+To push your branch to GitHub, run:
+git push -u origin appmod/java-upgrade-20260301053214
+
+If you want to push to the main branch, first switch to it:
+git checkout main
+
+Then push:
+git push -u origin main

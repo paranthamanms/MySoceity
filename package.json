@@ -1,0 +1,30 @@
+﻿{
+  "name": "NammaSociety-app",
+  "version": "1.0.0",
+  "description": "NammaSociety - Microservices and Microfrontend Architecture",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd frontend/host-app && npm install && cd ../login-mfe && npm install && cd ../register-mfe && npm install && cd ../dashboard-mfe && npm install",
+    "build-all": "npm run build:host && npm run build:login && npm run build:register && npm run build:dashboard && npm run build:backend",
+    "build:host": "cd frontend/host-app && npm run build",
+    "build:login": "cd frontend/login-mfe && npm run build",
+    "build:register": "cd frontend/register-mfe && npm run build",
+    "build:dashboard": "cd frontend/dashboard-mfe && npm run build",
+    "build:backend": "cd backend/auth-service && mvn clean package && cd ../user-service && mvn clean package",
+    "serve:host": "cd frontend/host-app && npm start",
+    "serve:login": "cd frontend/login-mfe && npm start",
+    "serve:register": "cd frontend/register-mfe && npm start",
+    "serve:dashboard": "cd frontend/dashboard-mfe && npm start",
+    "serve:auth": "cd backend/auth-service && mvn spring-boot:run",
+    "serve:user": "cd backend/user-service && mvn spring-boot:run"
+  },
+  "keywords": [
+    "microservices",
+    "microfrontend",
+    "angular",
+    "java"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

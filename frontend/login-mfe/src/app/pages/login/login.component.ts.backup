@@ -1,0 +1,433 @@
+﻿import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { HttpClient } from '@angular/common/http';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.scss']
+})
+export class LoginComponent implements OnInit {
+
+  // Login tabs
+  activeLoginTab: 'credentials' | 'mobile' = 'credentials';
+
+  // Credentials login
+  username: string = '';
+  password: string = '';
+  credentialsCaptcha: string = '';
+  generatedCredentialsCaptcha: string = '';
+
+  // Mobile OTP login
+  mobileNumber: string = '';
+  otp: string = '';
+  mobileCaptcha: string = '';
+  generatedMobileCaptcha: string = '';
+  otpSent: boolean = false;
+  otpTimer: number = 0;
+  otpTimerInterval: any;
+  generatedOTP: string = ''; // Store generated OTP for validation
+
+  // Forgot password
+  showForgotPasswordModal: boolean = false;
+  forgotPasswordMethod: 'mobile' | 'email' = 'mobile';
+  forgotPasswordIdentifier: string = '';
+  forgotPasswordOtp: string = '';
+  forgotPasswordOtpSent: boolean = false;
+  generatedForgotPasswordOTP: string = ''; // Store generated OTP for validation
+  forgotPasswordResetToken: string = '';
+  newPassword: string = '';
+  confirmNewPassword: string = '';
+  forgotPasswordStep: 'identifier' | 'otp' | 'newPassword' = 'identifier';
+
+  loading: boolean = false;
+  error: string = '';
+  successMessage: string = '';
+  showPasswordResetModal: boolean = false;
+  currentToken: string = '';
+
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private http: HttpClient
+  ) { }
+
+  ngOnInit(): void {
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    this.generateCredentialsCaptcha();
+    this.generateMobileCaptcha();
+  }
+
+  // Tab switching
+  switchLoginTab(tab: 'credentials' | 'mobile'): void {
+    this.activeLoginTab = tab;
+    this.error = '';
+    this.successMessage = '';
+    if (tab === 'credentials') {
+      this.generateCredentialsCaptcha();
+    } else {
+      this.generateMobileCaptcha();
+    }
+  }
+
+  // Captcha generation
+  generateCredentialsCaptcha(): void {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let captcha = '';
+    for (let i = 0; i < 6; i++) {
+      captcha += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    this.generatedCredentialsCaptcha = captcha;
+    this.credentialsCaptcha = '';
+  }
+
+  generateMobileCaptcha(): void {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let captcha = '';
+    for (let i = 0; i < 6; i++) {
+      captcha += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    this.generatedMobileCaptcha = captcha;
+    this.mobileCaptcha = '';
+  }
+
+  login(): void {
+    if (!this.username || !this.password) {
+      this.error = 'Please enter username and password';
+      return;
+    }
+
+    // Validate captcha
+    if (this.credentialsCaptcha !== this.generatedCredentialsCaptcha) {
+      this.error = 'Invalid captcha. Please try again.';
+      this.generateCredentialsCaptcha();
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+    this.successMessage = '';
+
+    this.authService.login(this.username, this.password).subscribe(
+      (response: any) => {
+        this.loading = false;
+        if (response.success) {
+          // Store token and user in localStorage
+          localStorage.setItem('token', response.token);
+          localStorage.setItem('user', JSON.stringify(response.user));
+          this.currentToken = response.token;
+
+          // Check if password reset is required
+          this.checkPasswordResetRequired(response.token);
+        } else {
+          this.error = response.message || 'Login failed';
+        }
+      },
+      (error: any) => {
+        this.loading = false;
+        this.error = error.error?.message || 'Login failed. Please try again.';
+      }
+    );
+  }
+
+  checkPasswordResetRequired(token: string): void {
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+
+    this.http.post<any>(
+      'http://localhost:8001/api/auth/check-password-reset',
+      {},
+      { headers }
+    ).subscribe(
+      (response) => {
+        if (response.requiresPasswordReset) {
+          // Show password reset modal
+          this.showPasswordResetModal = true;
+          this.successMessage = '';
+        } else {
+          // Proceed to dashboard
+          this.proceedToDashboard();
+        }
+      },
+      (error) => {
+        console.warn('Error checking password reset:', error);
+        // Proceed anyway if check fails
+        this.proceedToDashboard();
+      }
+    );
+  }
+
+  proceedToDashboard(): void {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      const token = localStorage.getItem('token');
+      // Redirect to dashboard with token and user params
+      const dashboardUrl = `http://localhost:4203?token=${encodeURIComponent(token!)}&user=${encodeURIComponent(JSON.stringify(user))}`;
+      window.location.href = dashboardUrl;
+    }
+  }
+
+  onPasswordReset(success: boolean): void {
+    if (success) {
+      this.showPasswordResetModal = false;
+      this.successMessage = 'Password changed successfully! Proceeding to dashboard...';
+      setTimeout(() => {
+        this.proceedToDashboard();
+      }, 1500);
+    }
+  }
+
+  goToRegister(): void {
+    window.location.href = 'http://localhost:4202';
+  }
+
+  handleKeyPress(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      if (this.activeLoginTab === 'credentials') {
+        this.login();
+      } else {
+        if (!this.otpSent) {
+          this.sendOTP();
+        } else {
+          this.verifyOTP();
+        }
+      }
+    }
+  }
+
+  // Mobile OTP login methods
+  sendOTP(): void {
+    if (!this.mobileNumber || this.mobileNumber.length !== 10) {
+      this.error = 'Please enter a valid 10-digit mobile number';
+      return;
+    }
+
+    // Validate captcha
+    if (this.mobileCaptcha !== this.generatedMobileCaptcha) {
+      this.error = 'Invalid captcha. Please try again.';
+      this.generateMobileCaptcha();
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    // TEMPORARY: Generate mock OTP and display in console
+    // This will be replaced with actual backend API call later
+    setTimeout(() => {
+      this.generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      console.log('%cðŸ” MOCK OTP GENERATED', 'color: #1976d2; font-size: 16px; font-weight: bold');
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      console.log('%cMobile Number: ' + this.mobileNumber, 'color: #333; font-size: 14px');
+      console.log('%cOTP Code: ' + this.generatedOTP, 'color: #f44336; font-size: 18px; font-weight: bold');
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      console.log('%cNote: This is a temporary mock OTP for development.', 'color: #ff9800; font-style: italic');
+      console.log('%cEnter this OTP in the login form to proceed.', 'color: #ff9800; font-style: italic');
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      
+      this.loading = false;
+      this.otpSent = true;
+      this.successMessage = 'OTP sent successfully! Check browser console for OTP.';
+      this.startOTPTimer();
+    }, 500);
+  }
+
+  verifyOTP(): void {
+    if (!this.otp || this.otp.length !== 6) {
+      this.error = 'Please enter a valid 6-digit OTP';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    // TEMPORARY: Verify against mock OTP
+    // This will be replaced with actual backend API call later
+    if (this.otp === this.generatedOTP) {
+      // Mock successful login - find user by mobile number
+      this.http.get<any>('http://localhost:8001/api/auth/login-by-mobile?mobile=' + this.mobileNumber).subscribe(
+        (response) => {
+          this.loading = false;
+          if (response.success) {
+            localStorage.setItem('token', response.token);
+            localStorage.setItem('user', JSON.stringify(response.user));
+            this.currentToken = response.token;
+            this.checkPasswordResetRequired(response.token);
+          } else {
+            this.error = response.message || 'Login failed';
+          }
+        },
+        (error) => {
+          this.loading = false;
+          this.error = 'Login failed. Please try again.';
+        }
+      );
+    } else {
+      // Invalid OTP
+      this.loading = false;
+      this.error = 'Invalid OTP. Please check the console and try again.';
+    }
+  }
+
+  resendOTP(): void {
+    this.otp = '';
+    this.otpSent = false;
+    this.clearOTPTimer();
+    this.sendOTP();
+  }
+
+  startOTPTimer(): void {
+    this.otpTimer = 60;
+    this.otpTimerInterval = setInterval(() => {
+      this.otpTimer--;
+      if (this.otpTimer <= 0) {
+        this.clearOTPTimer();
+      }
+    }, 1000);
+  }
+
+  clearOTPTimer(): void {
+    if (this.otpTimerInterval) {
+      clearInterval(this.otpTimerInterval);
+      this.otpTimerInterval = null;
+    }
+    this.otpTimer = 0;
+  }
+
+  // Forgot password methods
+  openForgotPasswordModal(): void {
+    this.showForgotPasswordModal = true;
+    this.forgotPasswordStep = 'identifier';
+    this.forgotPasswordMethod = 'mobile';
+    this.forgotPasswordIdentifier = '';
+    this.forgotPasswordOtp = '';
+    this.forgotPasswordOtpSent = false;
+    this.newPassword = '';
+    this.confirmNewPassword = '';
+    this.error = '';
+    this.successMessage = '';
+  }
+
+  closeForgotPasswordModal(): void {
+    this.showForgotPasswordModal = false;
+    this.error = '';
+    this.successMessage = '';
+  }
+
+  sendForgotPasswordOTP(): void {
+    if (!this.forgotPasswordIdentifier) {
+      this.error = `Please enter your ${this.forgotPasswordMethod === 'mobile' ? 'mobile number' : 'email'}`;
+      return;
+    }
+
+    if (this.forgotPasswordMethod === 'mobile' && this.forgotPasswordIdentifier.length !== 10) {
+      this.error = 'Please enter a valid 10-digit mobile number';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    // TEMPORARY: Generate mock OTP and display in console
+    // This will be replaced with actual backend API call later
+    setTimeout(() => {
+      this.generatedForgotPasswordOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      console.log('%cðŸ”’ FORGOT PASSWORD OTP GENERATED', 'color: #1976d2; font-size: 16px; font-weight: bold');
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      console.log('%cIdentifier (' + this.forgotPasswordMethod + '): ' + this.forgotPasswordIdentifier, 'color: #333; font-size: 14px');
+      console.log('%cOTP Code: ' + this.generatedForgotPasswordOTP, 'color: #f44336; font-size: 18px; font-weight: bold');
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      console.log('%cNote: This is a temporary mock OTP for development.', 'color: #ff9800; font-style: italic');
+      console.log('%cEnter this OTP in the modal to proceed.', 'color: #ff9800; font-style: italic');
+      console.log('%c==============================================', 'color: #1976d2; font-weight: bold');
+      
+      this.loading = false;
+      this.forgotPasswordOtpSent = true;
+      this.forgotPasswordStep = 'otp';
+      this.successMessage = `OTP sent successfully! Check browser console for OTP.`;
+    }, 500);
+  }
+
+  verifyForgotPasswordOTP(): void {
+    if (!this.forgotPasswordOtp || this.forgotPasswordOtp.length !== 6) {
+      this.error = 'Please enter a valid 6-digit OTP';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    // TEMPORARY: Verify against mock OTP
+    // This will be replaced with actual backend API call later
+    if (this.forgotPasswordOtp === this.generatedForgotPasswordOTP) {
+      this.loading = false;
+      this.forgotPasswordStep = 'newPassword';
+      this.successMessage = 'OTP verified successfully. Please set your new password.';
+      this.error = '';
+    } else {
+      this.loading = false;
+      this.error = 'Invalid OTP. Please check the console and try again.';
+    }
+  }
+
+  resetPassword(): void {
+    if (!this.newPassword || this.newPassword.length < 6) {
+      this.error = 'Password must be at least 6 characters long';
+      return;
+    }
+
+    if (this.newPassword !== this.confirmNewPassword) {
+      this.error = 'Passwords do not match';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    // Call backend API to reset password
+    this.http.post<any>('http://localhost:8001/api/auth/forgot-password/reset', {
+      identifier: this.forgotPasswordIdentifier,
+      method: this.forgotPasswordMethod,
+      newPassword: this.newPassword
+    }).subscribe(
+      (response) => {
+        this.loading = false;
+        if (response.success) {
+          console.log('%câœ… PASSWORD RESET SUCCESSFUL', 'color: #4caf50; font-size: 16px; font-weight: bold');
+          console.log('User identifier: ' + this.forgotPasswordIdentifier);
+          this.successMessage = 'Password reset successfully! Please login with your new password.';
+          setTimeout(() => {
+            this.closeForgotPasswordModal();
+            // Reset form fields
+            this.forgotPasswordIdentifier = '';
+            this.forgotPasswordOtp = '';
+            this.newPassword = '';
+            this.confirmNewPassword = '';
+            this.forgotPasswordStep = 'identifier';
+            this.forgotPasswordOtpSent = false;
+            this.generatedForgotPasswordOTP = '';
+          }, 2000);
+        } else {
+          this.error = response.message || 'Failed to reset password';
+        }
+      },
+      (error) => {
+        this.loading = false;
+        console.error('Password reset error:', error);
+        this.error = error.error?.message || 'Failed to reset password. Please try again.';
+      }
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.clearOTPTimer();
+  }
+}
+

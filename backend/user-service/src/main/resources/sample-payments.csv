@@ -1,0 +1,15 @@
+towerNumber,flatNumber,quarterName,quarterPeriod,amount,dueDate,status
+3,101,Q1 2024,Jan - Mar,15000,2024-03-31,pending
+3,101,Q2 2024,Apr - Jun,15000,2024-06-30,pending
+3,102,Q1 2024,Jan - Mar,15000,2024-03-31,paid
+3,102,Q2 2024,Apr - Jun,15000,2024-06-30,pending
+Tower 3,B12,Q1 2026,Jan - Mar,24000,31-01-2026,pending
+Tower 3,B12,Q2 2026,Apr - Jun,24000,30-04-2026,pending
+Tower 3,B12,Q3 2026,Jul - Sep,24000,31-07-2026,pending
+Tower 3,B12,Q4 2026,Oct - Dec,24000,30-10-2026,pending
+Tower 3,B11,Q1 2026,Jan - Mar,24000,31-01-2026,pending
+Tower 3,B11,Q2 2026,Apr - Jun,24000,30-04-2026,pending
+Tower 3,B11,Q3 2026,Jul - Sep,24000,31-07-2026,pending
+Tower 3,B11,Q4 2026,Oct - Dec,24000,30-10-2026,pending
+Tower 2,A05,Q1 2024,Jan - Mar,12000,2024-03-31,pending
+Tower 2,A05,Q2 2024,Apr - Jun,12000,2024-06-30,pending

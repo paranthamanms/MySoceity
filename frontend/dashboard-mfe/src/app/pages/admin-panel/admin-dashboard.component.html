@@ -1,0 +1,437 @@
+<div class="admin-dashboard-container">
+  <!-- Admin Header -->
+  <header class="admin-header">
+    <div class="admin-header-content">
+      <div class="admin-logo-section">
+        <img src="assets/images/logo.svg" alt="NammaSociety Logo" class="admin-logo">
+        <div class="admin-title">
+          <h1>NammaSociety Admin Console</h1>
+          <p>System Administration & Management Panel</p>
+        </div>
+      </div>
+
+      <div class="admin-user-info">
+        <span class="admin-badge">🔐 Administrator</span>
+        <div class="admin-profile">
+          <span>{{ adminUser?.username || 'Admin' }}</span>
+          <button class="admin-logout-btn" (click)="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Admin Tabs Navigation -->
+  <nav class="admin-tabs-navigation">
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'overview'"
+      (click)="selectTab('overview')">
+      <span class="tab-icon">📊</span>
+      <span class="tab-label">Dashboard View</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'users'"
+      (click)="selectTab('users')">
+      <span class="tab-icon">👥</span>
+      <span class="tab-label">User Management</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'audit'"
+      (click)="selectTab('audit')">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Audit Logs</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'bulk-upload'"
+      (click)="selectTab('bulk-upload')">
+      <span class="tab-icon">📤</span>
+      <span class="tab-label">Bulk User Upload</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'payments'"
+      (click)="selectTab('payments')">
+      <span class="tab-icon">💳</span>
+      <span class="tab-label">Payment Management</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'maintenance'"
+      (click)="selectTab('maintenance')">
+      <span class="tab-icon">🏢</span>
+      <span class="tab-label">Maintenance Payment</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'settings'"
+      (click)="selectTab('settings')">
+      <span class="tab-icon">⚙️</span>
+      <span class="tab-label">Settings</span>
+    </button>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="admin-main-content">
+      <!-- Overview Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'overview'">
+        <div class="overview-header">
+          <h2>Dashboard Overview</h2>
+          <div class="overview-actions">
+            <p class="last-updated">Last updated: {{ getCurrentTime() }}</p>
+            <button class="overview-btn" (click)="selectTab('audit')">View Audit Logs</button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+              <h3>Total Users</h3>
+              <p class="stat-value">{{ totalUsers }}</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">👤</div>
+            <div class="stat-info">
+              <h3>Active Users (Today)</h3>
+              <p class="stat-value">{{ activeUsers }}</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">🏘️</div>
+            <div class="stat-info">
+              <h3>Communities</h3>
+              <p class="stat-value">{{ communityCount }}</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+              <h3>System Alerts</h3>
+              <p class="stat-value">{{ systemAlerts }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="overview-sections">
+          <div class="overview-card">
+            <h3>Recent User Registrations</h3>
+            <div class="recent-list">
+              <div class="recent-item" *ngFor="let user of recentUsers">
+                <span class="user-name">{{ user.username }}</span>
+                <span class="user-type">{{ user.userType }}</span>
+                <span class="user-date">{{ user.registeredDate }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="overview-card">
+            <h3>System Status</h3>
+            <div class="system-status">
+              <div class="status-item">
+                <span class="status-name">Auth Service</span>
+                <span class="status-badge online">🟢 Online</span>
+              </div>
+              <div class="status-item">
+                <span class="status-name">User Service</span>
+                <span class="status-badge online">🟢 Online</span>
+              </div>
+              <div class="status-item">
+                <span class="status-name">Database</span>
+                <span class="status-badge online">🟢 Online</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Management Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'users'">
+        <app-user-management></app-user-management>
+      </div>
+
+      <!-- Audit Logs Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'audit'">
+        <app-audit-logs></app-audit-logs>
+      </div>
+
+      <!-- Bulk Upload Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'bulk-upload'">
+        <div class="bulk-upload-section">
+          <h2>Bulk User Upload</h2>
+          <p class="section-description">Upload multiple users at once using a CSV file</p>
+
+          <div class="upload-area">
+            <div class="upload-box" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onFileDrop($event)" [class.dragging]="isDragging">
+              <div class="upload-icon">📁</div>
+              <h3>Drop CSV file here</h3>
+              <p>or</p>
+              <label class="upload-btn">
+                Select File
+                <input type="file" hidden (change)="onFileSelected($event)" accept=".csv">
+              </label>
+              <p class="upload-info">Supported format: CSV (comma-separated values)</p>
+            </div>
+          </div>
+
+          <div class="template-section">
+            <h3>CSV Template</h3>
+            <p>Download template and fill in user details:</p>
+            <button class="download-template-btn">📥 Download Template</button>
+            <div class="template-preview">
+              <code>username,email,userType,ownerType,towerNumber,flatNumber,password</code>
+            </div>
+          </div>
+
+          <div class="upload-preview" *ngIf="uploadedFile">
+            <h3>File Ready: {{ uploadedFile.name }}</h3>
+            <button class="upload-submit-btn" (click)="submitBulkUpload()">Upload Users</button>
+            <button class="cancel-btn" (click)="clearUpload()">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Management Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'payments'">
+        <div class="payment-management-section">
+          <h2>Payment Management</h2>
+          <p class="section-description">Bulk upload maintenance payment details for all apartments</p>
+
+          <!-- Debug Info -->
+          <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; font-size: 12px;">
+            <strong>Debug Info:</strong>
+            File Selected: {{ uploadedPaymentFile?.name || 'None' }} | 
+            Is Uploading: {{ isUploadingPayment }} | 
+            Success Msg: {{ uploadSuccessMessage || 'empty' }} |
+            Error Msg: {{ uploadErrorMessage || 'empty' }}
+          </div>
+
+          <!-- Success/Error Messages -->
+          <div class="message-container">
+            <div class="success-message" *ngIf="uploadSuccessMessage">
+              <span class="message-icon">✓</span>
+              <span class="message-text">{{ uploadSuccessMessage }}</span>
+            </div>
+            <div class="error-message" *ngIf="uploadErrorMessage">
+              <span class="message-icon">✕</span>
+              <span class="message-text">{{ uploadErrorMessage }}</span>
+            </div>
+          </div>
+
+          <div class="upload-area">
+            <div class="upload-box" 
+              (dragover)="onPaymentDragOver($event)" 
+              (dragleave)="onPaymentDragLeave($event)" 
+              (drop)="onPaymentFileDrop($event)" 
+              [class.dragging]="isPaymentDragging">
+              <div class="upload-icon">💳</div>
+              <h3>Drop Payment CSV file here</h3>
+              <p>or</p>
+              <label class="upload-btn">
+                Select File
+                <input type="file" hidden (change)="onPaymentFileSelected($event)" accept=".csv">
+              </label>
+              <p class="upload-info">Supported format: CSV (comma-separated values)</p>
+              <div class="upload-quick-actions">
+                <button class="upload-submit-btn" (click)="submitPaymentUpload()" [disabled]="isUploadingPayment">
+                  <span *ngIf="!isUploadingPayment">💾 Upload Payment Data</span>
+                  <span *ngIf="isUploadingPayment">⏳ Uploading...</span>
+                </button>
+                <span class="selected-file" *ngIf="uploadedPaymentFile">Selected: {{ uploadedPaymentFile.name }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="template-section">
+            <h3>Payment CSV Template</h3>
+            <p>Download template and fill in payment details for each apartment:</p>
+            <button class="download-template-btn" (click)="downloadPaymentTemplate()">📥 Download Payment Template</button>
+            <div class="template-preview">
+              <code>towerNumber,flatNumber,quarterName,quarterPeriod,amount,dueDate,status,parkingFee,waterCharges</code>
+            </div>
+            <p class="template-hint">
+              Example: <code>3,B12,Q1 2024,Jan - Mar,15000,2024-03-31,paid</code>
+            </p>
+            <p class="template-hint">
+              Status values: <strong>paid</strong> or <strong>pending</strong>
+            </p>
+          </div>
+
+          <div class="upload-preview" *ngIf="uploadedPaymentFile">
+            <h3>File Ready: {{ uploadedPaymentFile.name }}</h3>
+            <p class="file-size">Size: {{ (uploadedPaymentFile.size / 1024).toFixed(2) }} KB</p>
+            <button class="upload-submit-btn" (click)="submitPaymentUpload()" [disabled]="isUploadingPayment">
+              <span *ngIf="!isUploadingPayment">💾 Upload Payment Data</span>
+              <span *ngIf="isUploadingPayment">⏳ Uploading...</span>
+            </button>
+            <button class="cancel-btn" (click)="clearPaymentUpload()" [disabled]="isUploadingPayment">Cancel</button>
+          </div>
+
+          <div class="payment-instructions">
+            <h3>Instructions</h3>
+            <ul>
+              <li>Upload a CSV file containing payment details for all apartments</li>
+              <li>The file must include columns: towerNumber, flatNumber, quarterName, quarterPeriod, amount, dueDate, status</li>
+              <li>You can add extra columns for additional charges (e.g., parkingFee, waterCharges)</li>
+              <li>Additional charge values will be stored and included in totals</li>
+              <li>Payment data will be linked to residents based on tower and flat number</li>
+              <li>Residents will see their payment details in the Maintenance Payment section</li>
+              <li>You can upload multiple times - new data will update existing records</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Maintenance Payment Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'maintenance'">
+        <div class="maintenance-payment-section">
+          <h2>Maintenance Payment Dashboard</h2>
+          <p class="section-description">View and manage all maintenance payment records by tower and flat</p>
+
+          <!-- Quarterly Summary Section -->
+          <div class="quarterly-summary" *ngIf="maintenanceQuarterTotals.size > 0">
+            <h3>Summary by Quarter</h3>
+            <div class="quarter-summary-grid">
+              <div class="quarter-summary-card" *ngFor="let entry of maintenanceQuarterTotals | keyvalue">
+                <div class="quarter-name">{{ entry.key }}</div>
+                <div class="quarter-stat">
+                  <span class="stat-label">Expected:</span>
+                  <span class="stat-amount">₹ {{ entry.value.expected | number:'1.0-0' }}</span>
+                </div>
+                <div class="quarter-stat">
+                  <span class="stat-label">Collected:</span>
+                  <span class="stat-amount collected">₹ {{ entry.value.collected | number:'1.0-0' }}</span>
+                </div>
+                <div class="quarter-stat">
+                  <span class="stat-label">Pending:</span>
+                  <span class="stat-amount pending">₹ {{ entry.value.pending | number:'1.0-0' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="maintenance-info-box">
+            <div class="info-item">
+              <span class="info-label">Total Collections Expected:</span>
+              <span class="info-value">₹ {{ totalCollectionsExpected | number:'1.0-0' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Total Collected:</span>
+              <span class="info-value">₹ {{ totalCollected | number:'1.0-0' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Total Pending:</span>
+              <span class="info-value">₹ {{ totalPending | number:'1.0-0' }}</span>
+            </div>
+          </div>
+
+          <div class="maintenance-filters">
+            <input 
+              type="text" 
+              placeholder="Search by tower or flat number..." 
+              class="filter-input"
+              [(ngModel)]="searchQuery">
+            <select class="filter-select" [(ngModel)]="filterTower">
+              <option value="">Filter by Tower</option>
+              <option *ngFor="let tower of getUniqueTowers()" [value]="tower">Tower {{ tower }}</option>
+            </select>
+            <select class="filter-select" [(ngModel)]="filterStatus">
+              <option value="">Filter by Status</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+
+          <div class="maintenance-table-container">
+            <table class="maintenance-table" *ngIf="getFilteredMaintenancePayments().length > 0">
+              <thead>
+                <tr>
+                  <th>Tower-Flat</th>
+                  <th>Quarter</th>
+                  <th>Period</th>
+                  <th>Amount (₹)</th>
+                  <th>Additional (₹)</th>
+                  <th>Total (₹)</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let payment of getFilteredMaintenancePayments()">
+                  <td><strong>{{ payment.towerFlat }}</strong></td>
+                  <td>{{ payment.quarter }}</td>
+                  <td>{{ payment.quarterPeriod }}</td>
+                  <td class="amount-cell">{{ payment.amount | number:'1.0-0' }}</td>
+                  <td class="amount-cell">{{ getAdditionalFieldsTotal(payment.additionalFields) | number:'1.0-0' }}</td>
+                  <td class="amount-cell total">
+                    <strong>{{ (payment.amount + getAdditionalFieldsTotal(payment.additionalFields)) | number:'1.0-0' }}</strong>
+                  </td>
+                  <td>{{ payment.dueDate }}</td>
+                  <td>
+                    <span class="status-badge" [class.paid]="payment.status === 'paid' || payment.statusText === 'Paid'" 
+                          [class.pending]="payment.status === 'pending' || payment.statusText === 'Pending'">
+                      {{ payment.status || payment.statusText }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'settings'">
+        <div class="settings-section">
+          <h2>Admin Settings</h2>
+          
+          <div class="settings-group">
+            <h3>Default Admin Configuration</h3>
+            <div class="setting-item">
+              <label>Default Password for New Admins</label>
+              <input type="password" class="setting-input" placeholder="Enter default admin password" [value]="defaultAdminPassword">
+              <p class="setting-hint">This password will be required to change on first login</p>
+            </div>
+            <div class="setting-item">
+              <label>Password Expiry Days (0 = never)</label>
+              <input type="number" class="setting-input" [value]="passwordExpiryDays">
+            </div>
+            <button class="save-btn">💾 Save Settings</button>
+          </div>
+
+          <div class="settings-group">
+            <h3>System Configuration</h3>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" [checked]="allowPublicRegistration">
+                Allow Public User Registration
+              </label>
+            </div>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" [(ngModel)]="enableAuditLogging">
+                Enable Audit Logging (recommended)
+              </label>
+            </div>
+            <div class="setting-item">
+              <label>Audit Log Retention (days)</label>
+              <input type="number" class="setting-input" [(ngModel)]="auditLogRetentionDays" min="1" max="3650">
+              <p class="setting-hint">Default retention is 15 days. Set 0 to disable retention cleanup.</p>
+            </div>
+            <button class="save-btn" (click)="saveAuditConfig()">💾 Save Settings</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  <!-- Footer -->
+  <footer class="admin-footer">
+    <p>&copy; 2026 NammaSociety-AMP Administrative Console. All Rights Reserved.</p>
+  </footer>
+</div>

@@ -1,0 +1,441 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title class="dashboard-title-wrap">
+      <div class="title-stack">
+        <div class="society-name">{{ getSocietyName() }}</div>
+        <div class="dashboard-name">{{ auth.getDashboardTitle() }}</div>
+      </div>
+    </ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="loadSummary()" fill="clear">
+        <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+
+  <!-- Resident info bar -->
+  <div class="user-bar">
+    <ion-icon name="person-circle-outline"></ion-icon>
+    <div class="user-details">
+      <span class="user-name">{{ user?.fullName || user?.username }}</span>
+      <span class="user-apt">{{ getTowerFlatLine() }}</span>
+    </div>
+    <ion-badge color="primary" class="role-badge">{{ auth.getCurrentRoleLabel() }}</ion-badge>
+  </div>
+
+  <ion-segment [value]="activeSegment" (ionChange)="onSegmentChange($event)" class="community-segment">
+    <ion-segment-button value="overview"><ion-label>Home</ion-label></ion-segment-button>
+    <ion-segment-button value="requests">
+      <ion-label>
+        Requests
+        <ion-badge *ngIf="pendingRequests.length > 0" color="danger">{{ pendingRequests.length }}</ion-badge>
+      </ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="logs"><ion-label>Logs</ion-label></ion-segment-button>
+    <ion-segment-button value="preapprovals"><ion-label>Pre-Approved</ion-label></ion-segment-button>
+    <ion-segment-button value="posts"><ion-label>Posts</ion-label></ion-segment-button>
+  </ion-segment>
+</ion-header>
+
+<ion-content>
+
+  <div class="menu-breadcrumb-bar">
+    <ion-button size="small" fill="solid" color="light" class="menu-btn" (click)="toggleMenuPanel()">
+      <ion-icon name="menu-outline" slot="start"></ion-icon>
+      Menu
+    </ion-button>
+    <div class="breadcrumb-text">{{ getBreadcrumbTrail() }}</div>
+  </div>
+
+  <div class="menu-panel" *ngIf="showMenuPanel">
+    <div class="profile-block">
+      <div class="profile-name">{{ user?.fullName || user?.username }}</div>
+      <div class="profile-meta">{{ auth.getCurrentRoleLabel() }} • {{ getTowerFlatLine() }}</div>
+      <div class="profile-meta">{{ getSocietyName() }}</div>
+    </div>
+    <div class="menu-actions">
+      <ion-button expand="block" fill="outline" (click)="viewProfile()">
+        <ion-icon name="person-outline" slot="start"></ion-icon>
+        User Profile
+      </ion-button>
+      <ion-button expand="block" fill="outline" (click)="resetPassword()">
+        <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+        Password Reset
+      </ion-button>
+      <ion-button expand="block" color="danger" class="logout-cta" (click)="logout()">
+        <ion-icon name="log-out-outline" slot="start"></ion-icon>
+        Logout
+      </ion-button>
+    </div>
+  </div>
+
+  <div class="ad-space">
+    <div class="ad-placeholder">Advertisement Space</div>
+  </div>
+
+  <!-- ===== OVERVIEW TAB ===== -->
+  <div *ngIf="activeSegment === 'overview'">
+    <!-- Hierarchical Menu -->
+    <div class="section-title">Menu</div>
+    <div class="hierarchical-menu">
+      <!-- Home -->
+      <div class="menu-item menu-item-primary" (click)="activeSegment = 'overview'">
+        <ion-icon name="home-outline" color="primary"></ion-icon>
+        <span>Home</span>
+      </div>
+
+      <!-- Market Place -->
+      <div class="menu-item" (click)="onQuickAction('marketplace')">
+        <ion-icon name="storefront-outline" color="success"></ion-icon>
+        <span>Market Place</span>
+      </div>
+
+      <!-- CR Market Place -->
+      <div class="menu-item" (click)="onQuickAction('cr-marketplace')">
+        <ion-icon name="restaurant-outline" color="warning"></ion-icon>
+        <span>CR Market Place</span>
+      </div>
+
+      <!-- Amenities (Expandable) -->
+      <div class="menu-item menu-item-expandable" (click)="toggleMenuSection('amenities')">
+        <ion-icon name="fitness-outline" color="tertiary"></ion-icon>
+        <span>Amenities</span>
+        <ion-icon class="expand-icon" [name]="isMenuSectionExpanded('amenities') ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+      </div>
+      <div class="menu-submenu" *ngIf="isMenuSectionExpanded('amenities')">
+        <div class="menu-subitem" *ngFor="let amenity of amenitiesList" (click)="selectMenuAmenity(amenity.name)">
+          <ion-icon name="checkmark-circle-outline" color="secondary"></ion-icon>
+          <span>{{ amenity.name }}</span>
+        </div>
+      </div>
+
+      <!-- NoBroker -->
+      <div class="menu-item" (click)="onQuickAction('nobroker')">
+        <ion-icon name="business-outline" color="primary"></ion-icon>
+        <span>NoBroker - Internal</span>
+      </div>
+
+      <!-- Posts (Expandable) -->
+      <div class="menu-item menu-item-expandable" (click)="toggleMenuSection('posts')">
+        <ion-icon name="chatbubbles-outline" color="success"></ion-icon>
+        <span>Posts</span>
+        <ion-icon class="expand-icon" [name]="isMenuSectionExpanded('posts') ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+      </div>
+      <div class="menu-submenu" *ngIf="isMenuSectionExpanded('posts')">
+        <div class="menu-subitem" *ngFor="let category of postCategories" (click)="selectMenuCategory(category.key)">
+          <ion-icon [name]="category.icon" color="secondary"></ion-icon>
+          <span>{{ category.label }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="section-title">Quick Actions</div>
+    <div class="quick-actions-grid">
+      <div class="qa-card" *ngFor="let action of quickActions" (click)="onQuickAction(action.key)">
+        <ion-icon [name]="action.icon" [color]="action.color"></ion-icon>
+        <span>{{ action.label }}</span>
+        <ion-badge *ngIf="action.badge && action.badge > 0" color="danger">{{ action.badge }}</ion-badge>
+      </div>
+    </div>
+
+    <!-- Pending requests preview -->
+    <div class="section-title" *ngIf="pendingRequests.length > 0">
+      Awaiting Your Approval
+      <ion-badge color="danger">{{ pendingRequests.length }}</ion-badge>
+    </div>
+    <ion-card *ngFor="let req of pendingRequests.slice(0,2)" class="pending-preview-card" (click)="openApprovalPopup(req)">
+      <ion-card-content>
+        <div class="preview-row">
+          <ion-icon [name]="getTypeIcon(req.visitorType)" [color]="getTypeColor(req.visitorType)" class="pv-icon"></ion-icon>
+          <div class="pv-info">
+            <div class="pv-name">{{ req.visitorName }}</div>
+            <div class="pv-service">{{ getServiceDisplayName(req) }}</div>
+          </div>
+          <ion-chip color="danger" class="tap-chip">Tap to act</ion-chip>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Recent logs preview -->
+    <div class="section-title" *ngIf="approvalLogs.length > 0">Recent Visitors</div>
+    <ion-card *ngFor="let log of approvalLogs.slice(0,3)" class="recent-log-card">
+      <ion-card-content>
+        <div class="log-preview-row">
+          <ion-icon [name]="getTypeIcon(log.visitorType)" [color]="getTypeColor(log.visitorType)"></ion-icon>
+          <div class="lp-info">
+            <span class="lp-name">{{ log.visitorName }}</span>
+            <span class="lp-time">{{ formatTime(log.entryTime) }}</span>
+          </div>
+          <ion-badge [color]="log.status === 'APPROVED' ? 'success' : 'danger'" class="status-chip">{{ log.status }}</ion-badge>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <div class="section-title" *ngIf="posts.length > 0 || announcements.length > 0">Latest Posts</div>
+    <ion-card *ngFor="let post of posts.slice(0,2)" class="post-card" (click)="openPosts('community')">
+      <ion-card-content>
+        <div class="post-top-row">
+          <ion-chip color="success" class="post-chip">Post</ion-chip>
+          <span class="post-time">{{ formatPostTime(post.createdAt) }}</span>
+        </div>
+        <div class="post-title">{{ post.title || 'Community Update' }}</div>
+        <div class="post-content">{{ post.content || '-' }}</div>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card *ngFor="let post of announcements.slice(0,2)" class="post-card" (click)="openPosts('announcements')">
+      <ion-card-content>
+        <div class="post-top-row">
+          <ion-chip color="warning" class="post-chip">Announcement</ion-chip>
+          <span class="post-time">{{ formatPostTime(post.createdAt) }}</span>
+        </div>
+        <div class="post-title">{{ post.title || 'Society Notice' }}</div>
+        <div class="post-content">{{ post.content || '-' }}</div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- ===== PENDING REQUESTS TAB ===== -->
+  <div *ngIf="activeSegment === 'requests'">
+    <ion-card class="request-card" *ngIf="auth.getRoleCategory() === 'security' || auth.getRoleCategory() === 'society-admin'">
+      <ion-card-header>
+        <ion-card-title>Scanner Based Gate Entry</ion-card-title>
+        <ion-card-subtitle>Create approval request from scanned code payload</ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item>
+          <ion-label position="stacked">Society Scanner Code</ion-label>
+          <ion-input [value]="currentSocietyScannerCode || 'Not generated yet'" readonly></ion-input>
+        </ion-item>
+        <ion-button size="small" fill="outline" (click)="loadSocietyScannerCode()">Refresh Code</ion-button>
+        <ion-button size="small" fill="outline" color="tertiary" *ngIf="auth.getRoleCategory() === 'society-admin'" (click)="generateSocietyScannerCode()">Generate Code</ion-button>
+
+        <ion-item>
+          <ion-label position="stacked">Scanned Payload (JSON)</ion-label>
+          <ion-textarea [(ngModel)]="scannerEntryPayload" rows="3" placeholder='{"scannerCode":"SCN...","visitorType":"CAB",...}'></ion-textarea>
+        </ion-item>
+        <ion-button fill="outline" size="small" (click)="applyScannerPayload()">Apply Payload</ion-button>
+
+        <ion-item>
+          <ion-label position="stacked">Visitor Type</ion-label>
+          <ion-select [(ngModel)]="scannerEntry.visitorType">
+            <ion-select-option value="GUEST">Guest</ion-select-option>
+            <ion-select-option value="CAB">Cab</ion-select-option>
+            <ion-select-option value="DELIVERY">Delivery</ion-select-option>
+            <ion-select-option value="VENDOR">Vendor</ion-select-option>
+            <ion-select-option value="VISITING_HELP">Visiting Help</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item><ion-label position="stacked">Service Sub Category</ion-label><ion-input [(ngModel)]="scannerEntry.serviceSubCategory"></ion-input></ion-item>
+        <ion-item><ion-label position="stacked">Visitor Name</ion-label><ion-input [(ngModel)]="scannerEntry.visitorName"></ion-input></ion-item>
+        <ion-item><ion-label position="stacked">Visitor Aadhaar</ion-label><ion-input [(ngModel)]="scannerEntry.visitorAadhaar"></ion-input></ion-item>
+        <ion-item><ion-label position="stacked">Visitor Phone</ion-label><ion-input [(ngModel)]="scannerEntry.visitorPhone"></ion-input></ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Tower</ion-label>
+          <ion-input [(ngModel)]="scannerEntry.tower"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Flat Number</ion-label>
+          <ion-input [(ngModel)]="scannerEntry.apartmentNumber"></ion-input>
+        </ion-item>
+
+        <ion-item><ion-label position="stacked">Owner Name</ion-label><ion-input [(ngModel)]="scannerEntry.ownerName"></ion-input></ion-item>
+        <ion-item><ion-label position="stacked">Owner Phone</ion-label><ion-input [(ngModel)]="scannerEntry.ownerPhone"></ion-input></ion-item>
+        <ion-item><ion-label position="stacked">Resident Phone (SMS)</ion-label><ion-input [(ngModel)]="scannerEntry.residentPhone"></ion-input></ion-item>
+        <ion-item><ion-label position="stacked">Face Capture Ref</ion-label><ion-input [(ngModel)]="scannerEntry.faceCapture"></ion-input></ion-item>
+
+        <ion-button expand="block" color="primary" (click)="submitScannerEntryRequest()">
+          Create Approval Request
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+
+    <div *ngIf="pendingRequests.length === 0" class="empty-state">
+      <ion-icon name="checkmark-done-circle-outline" color="success"></ion-icon>
+      <p>No pending approvals</p>
+    </div>
+    <ion-card *ngFor="let req of pendingRequests" class="request-card" (click)="openApprovalPopup(req)">
+      <ion-card-content>
+        <div class="card-top">
+          <ion-icon [name]="getTypeIcon(req.visitorType)" [color]="getTypeColor(req.visitorType)" class="type-icon"></ion-icon>
+          <div class="card-info">
+            <div class="visitor-name">{{ req.visitorName }}</div>
+            <div class="service-label">{{ getServiceDisplayName(req) }}</div>
+          </div>
+          <ion-badge color="danger">Pending</ion-badge>
+        </div>
+        <div class="card-details">
+          <span><ion-icon name="call-outline"></ion-icon> {{ req.visitorPhone || '-' }}</span>
+          <span><ion-icon name="time-outline"></ion-icon> {{ formatTime(req.requestedAt) }}</span>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- ===== LOGS TAB ===== -->
+  <div *ngIf="activeSegment === 'logs'">
+    <div *ngIf="approvalLogs.length === 0" class="empty-state">
+      <ion-icon name="document-text-outline" color="medium"></ion-icon>
+      <p>No visit logs yet</p>
+    </div>
+    <ion-card *ngFor="let log of approvalLogs" class="log-card">
+      <ion-card-content>
+        <div class="log-row">
+          <ion-icon [name]="getTypeIcon(log.visitorType)" [color]="getTypeColor(log.visitorType)"></ion-icon>
+          <div class="log-info">
+            <div class="log-name">{{ log.visitorName }}</div>
+            <div class="log-meta">{{ formatTime(log.entryTime) }}</div>
+          </div>
+          <ion-badge [color]="log.status === 'APPROVED' ? 'success' : 'danger'">{{ log.status }}</ion-badge>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- ===== PRE-APPROVALS TAB ===== -->
+  <div *ngIf="activeSegment === 'preapprovals'">
+    <div *ngIf="preApprovals.length === 0" class="empty-state">
+      <ion-icon name="calendar-outline" color="medium"></ion-icon>
+      <p>No active pre-approvals</p>
+      <ion-button fill="outline" (click)="openPreApprovalForm()">Add Pre-Approval</ion-button>
+    </div>
+    <ion-card *ngFor="let pa of preApprovals" class="pa-card">
+      <ion-card-content>
+        <div class="pa-row">
+          <ion-icon name="person-circle-outline" color="success" class="pa-icon"></ion-icon>
+          <div class="pa-info">
+            <div class="pa-name">{{ pa.visitorName }}</div>
+            <div class="pa-type">{{ pa.visitorType }}</div>
+          </div>
+          <ion-badge color="success">ACTIVE</ion-badge>
+        </div>
+        <div class="pa-validity">{{ pa.validFrom | date: 'dd MMM' }} – {{ pa.validUntil | date: 'dd MMM yy' }}</div>
+        <div class="pa-desc" *ngIf="pa.description">{{ pa.description }}</div>
+      </ion-card-content>
+    </ion-card>
+    <div class="add-btn-row" *ngIf="preApprovals.length > 0">
+      <ion-button fill="outline" expand="block" (click)="openPreApprovalForm()">
+        <ion-icon name="add-outline" slot="start"></ion-icon>
+        Add Pre-Approval
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- ===== POSTS TAB ===== -->
+  <div *ngIf="activeSegment === 'posts'">
+    <div class="posts-toggle-row">
+      <ion-segment [value]="selectedPostType" (ionChange)="onPostTypeChange($event)">
+        <ion-segment-button value="community"><ion-label>Community</ion-label></ion-segment-button>
+        <ion-segment-button value="announcements"><ion-label>Announcements</ion-label></ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <div *ngIf="getVisiblePosts().length === 0" class="empty-state">
+      <ion-icon name="chatbubbles-outline" color="medium"></ion-icon>
+      <p>No {{ selectedPostType === 'community' ? 'community posts' : 'announcements' }} yet</p>
+    </div>
+
+    <ion-card *ngFor="let post of getVisiblePosts()" class="post-card">
+      <ion-card-content>
+        <div class="post-top-row">
+          <ion-chip [color]="selectedPostType === 'community' ? 'success' : 'warning'" class="post-chip">
+            {{ selectedPostType === 'community' ? 'Post' : 'Announcement' }}
+          </ion-chip>
+          <span class="post-time">{{ formatPostTime(post.createdAt) }}</span>
+        </div>
+        <div class="post-title">{{ post.title || (selectedPostType === 'community' ? 'Community Post' : 'Society Announcement') }}</div>
+        <div class="post-content">{{ post.content || '-' }}</div>
+        <div class="post-author">By {{ getPostAuthor(post) }}</div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- FAB to add pre-approval -->
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+    <ion-fab-button color="primary" (click)="openPreApprovalForm()">
+      <ion-icon name="person-add-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar class="logout-footer">
+    <ion-button expand="block" class="logout-cta" color="danger" (click)="logout()">
+      <ion-icon name="log-out-outline" slot="start"></ion-icon>
+      Sign Out
+    </ion-button>
+  </ion-toolbar>
+</ion-footer>
+
+<!-- ====== LIVE APPROVAL POPUP ====== -->
+<div class="approval-overlay" *ngIf="showApprovalPopup" (click)="closeApprovalPopup()">
+  <div class="approval-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header" [class]="'type-' + (currentApproval?.visitorType || 'GUEST').toUpperCase()">
+      <div class="modal-badge">{{ getServiceDisplayName(currentApproval) }}</div>
+      <div class="modal-name">{{ currentApproval?.visitorName }}</div>
+      <div class="modal-phone">
+        <ion-icon name="call-outline"></ion-icon> {{ currentApproval?.visitorPhone || 'No phone' }}
+      </div>
+      <div class="modal-timer"><ion-icon name="timer-outline"></ion-icon> {{ popupTimer }}s</div>
+    </div>
+    <div class="modal-body">
+      <div class="detail-row">
+        <ion-icon name="business-outline" color="medium"></ion-icon>
+        <span>Apt {{ currentApproval?.apartmentNumber }}</span>
+      </div>
+      <div class="modal-actions">
+        <ion-button color="success" size="large" (click)="onApprove()">
+          <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon> Approve
+        </ion-button>
+        <ion-button color="danger" size="large" (click)="onReject()">
+          <ion-icon name="close-circle-outline" slot="start"></ion-icon> Reject
+        </ion-button>
+      </div>
+      <ion-button fill="clear" size="small" class="dismiss-link" (click)="closeApprovalPopup()">Dismiss</ion-button>
+    </div>
+  </div>
+</div>
+
+<!-- ======  PRE-APPROVAL FORM ====== -->
+<div class="approval-overlay" *ngIf="showPreApprovalForm" (click)="showPreApprovalForm = false">
+  <div class="form-modal" (click)="$event.stopPropagation()">
+    <div class="form-header">
+      <h3>Pre-Approve Visitor</h3>
+      <ion-icon name="close-circle-outline" (click)="showPreApprovalForm = false"></ion-icon>
+    </div>
+    <div class="form-body">
+      <ion-item class="form-item" lines="none">
+        <ion-label position="stacked">Visitor Type</ion-label>
+        <ion-select [(ngModel)]="newPreApproval.visitorType" interface="action-sheet">
+          <ion-select-option *ngFor="let t of visitorTypes" [value]="t">{{ t }}</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-item class="form-item" lines="none">
+        <ion-label position="stacked">Visitor Name *</ion-label>
+        <ion-input [(ngModel)]="newPreApproval.visitorName" placeholder="Full name"></ion-input>
+      </ion-item>
+      <ion-item class="form-item" lines="none">
+        <ion-label position="stacked">Phone</ion-label>
+        <ion-input [(ngModel)]="newPreApproval.visitorPhone" type="tel" placeholder="Mobile number"></ion-input>
+      </ion-item>
+      <ion-item class="form-item" lines="none">
+        <ion-label position="stacked">Valid From *</ion-label>
+        <ion-input [(ngModel)]="newPreApproval.validFrom" type="date"></ion-input>
+      </ion-item>
+      <ion-item class="form-item" lines="none">
+        <ion-label position="stacked">Valid Until *</ion-label>
+        <ion-input [(ngModel)]="newPreApproval.validUntil" type="date"></ion-input>
+      </ion-item>
+      <ion-item class="form-item" lines="none">
+        <ion-label position="stacked">Description</ion-label>
+        <ion-input [(ngModel)]="newPreApproval.description" placeholder="Optional notes"></ion-input>
+      </ion-item>
+      <ion-button expand="block" color="success" (click)="submitPreApproval()">
+        <ion-icon name="save-outline" slot="start"></ion-icon> Save Pre-Approval
+      </ion-button>
+    </div>
+  </div>
+</div>

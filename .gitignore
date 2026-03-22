@@ -1,0 +1,35 @@
+# Maven build artifacts
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# Node modules and build
+node_modules/
+dist/
+.angular/
+npm-debug.log
+package-lock.json
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+
+# Compiled output
+*.js.map

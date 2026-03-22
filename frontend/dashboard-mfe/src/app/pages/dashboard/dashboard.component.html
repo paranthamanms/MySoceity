@@ -1,0 +1,3097 @@
+﻿<div class="dashboard-container">
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <!-- Left Section - Logo -->
+      <div class="header-left">
+        <div class="logo-header">
+          <img src="assets/images/logo.svg" alt="NammaSociety Logo" class="logo-header-image">
+          <div class="logo-text-container">
+            <div class="logo-header-text">NammaSociety</div>
+            <div class="logo-tagline">Smart Living, Simplified ✨</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Section - Title (Community Dashboard or Society Administration Console) -->
+      <div class="header-center">
+        <!-- Society Name Display (for users/society admins with a societyName, not super admin) -->
+        <div class="society-name-display" *ngIf="user && user.societyName">
+          <p class="society-name">🏢 {{ user.societyName }}</p>
+        </div>
+        
+        <div class="console-title" *ngIf="user">
+          <h1>{{ getDashboardTitle() }}</h1>
+        </div>
+      </div>
+
+      <!-- Smart Search Section with Auto-Complete -->
+      <div class="header-search">
+        <div class="search-container">
+          <input 
+            type="text" 
+            class="search-input" 
+            placeholder="Search anything - amenities, users, features..."
+            [(ngModel)]="globalSearchQuery"
+            (input)="onGlobalSearch()"
+            (focus)="showSearchResults = true"
+            (blur)="hideSearchResults()">
+          <button class="search-btn">🔍</button>
+          
+          <!-- Auto-Complete Dropdown -->
+          <div class="search-results-dropdown" *ngIf="showSearchResults && searchResults.length > 0">
+            <div 
+              class="search-result-item" 
+              *ngFor="let result of searchResults"
+              (mousedown)="selectSearchResult(result)">
+              <span class="result-icon">{{ result.icon }}</span>
+              <div class="result-content">
+                <div class="result-title">{{ result.title }}</div>
+                <div class="result-description">{{ result.description }}</div>
+              </div>
+              <span class="result-type-badge" [class]="'badge-' + result.type">{{ result.type }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Section - Welcome Message with Tower/Flat below + User Profile Icon Menu -->
+      <div class="header-right">
+        <!-- Welcome Message with Property Info Below -->
+        <div class="welcome-container" *ngIf="user">
+          <div class="welcome-message">
+            <p>Welcome, {{ user.username }} ({{ getUserTypeDisplay() }})</p>
+          </div>
+          <!-- Tower & Flat Info for Non-Admin Users - positioned below welcome message -->
+          <div class="property-location-display" *ngIf="user && !isAdminUser()">
+            <p class="property-tag">📍 Tower {{ user.towerNumber }}, Flat {{ user.flatNumber }}</p>
+          </div>
+        </div>
+
+        <!-- Announcement Notification Bell (for normal users) -->
+        <div class="notification-bell" *ngIf="!isAdminUser()" (click)="toggleAnnouncementNotifications()">
+          <button class="bell-icon-btn" title="View Announcements">
+            🔔
+            <span class="notification-badge" *ngIf="unreadAnnouncementsCount > 0">{{ unreadAnnouncementsCount }}</span>
+          </button>
+        </div>
+
+        <!-- User Profile Icon Menu -->
+        <div class="user-profile-menu">
+          <button class="user-profile-icon" (click)="toggleProfileMenu()" *ngIf="user" 
+                  [style.background-color]="'#E53935'"
+                  [title]="user.username">
+            {{ user.username.charAt(0).toUpperCase() }}
+          </button>
+          
+          <!-- Profile Dropdown Menu -->
+          <div class="user-profile-dropdown" *ngIf="isProfileMenuOpen && user">
+            <div class="profile-header">
+              <div class="profile-avatar" [style.background-color]="'#E53935'">
+                {{ user.username.charAt(0).toUpperCase() }}
+              </div>
+              <div class="profile-info">
+                <div class="profile-username">{{ user.username }}</div>
+                <div class="profile-email">{{ user.email }}</div>
+              </div>
+            </div>
+            <div class="profile-divider"></div>
+            <button class="dropdown-item" (click)="viewProfile()">
+              <span class="icon">👤</span>
+              <span>View Profile</span>
+            </button>
+            <button class="dropdown-item" (click)="logout()">
+              <span class="icon">🚪</span>
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Society Toggle for Multi-Society Users (moved below main header) -->
+      <div class="society-selector-row" *ngIf="user && userSocieties && userSocieties.length > 0">
+        <div class="society-selector">
+          <label for="society-select">Society:</label>
+          <select id="society-select" [(ngModel)]="currentSociety" (change)="onSocietyChange($event)" class="society-select" [disabled]="userSocieties.length === 1">
+            <option *ngFor="let society of userSocieties" [value]="society">
+              {{ society }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="admin-tabs-navigation admin-tabs-inline" *ngIf="isAdminUser()">
+    <div class="admin-tabs-buttons">
+      <button class="tab-button" (click)="selectAdminTab('overview')" [class.active]="adminPanelTab === 'overview'">
+        <span class="tab-icon">📊</span>
+        <span class="tab-label">Dashboard View</span>
+      </button>
+      <button class="tab-button" (click)="selectAdminTab('users')" [class.active]="adminPanelTab === 'users'">
+        <span class="tab-icon">👥</span>
+        <span class="tab-label">User Management</span>
+      </button>
+      <!-- Audit Logs - Super Admin Only -->
+      <button class="tab-button" (click)="selectAdminTab('audit')" [class.active]="adminPanelTab === 'audit'" *ngIf="isSuperAdmin()">
+        <span class="tab-icon">📋</span>
+        <span class="tab-label">Audit Logs</span>
+      </button>
+      <button class="tab-button" (click)="selectAdminTab('bulk-upload')" [class.active]="adminPanelTab === 'bulk-upload'">
+        <span class="tab-icon">📤</span>
+        <span class="tab-label">Bulk User Upload</span>
+      </button>
+      <!-- Payment & Maintenance - Society Admin Only -->
+      <button class="tab-button" (click)="selectAdminTab('payments')" [class.active]="adminPanelTab === 'payments'" *ngIf="isSocietyAdmin()">
+        <span class="tab-icon">💳</span>
+        <span class="tab-label">Payment Management</span>
+      </button>
+      <button class="tab-button" (click)="selectAdminTab('maintenance')" [class.active]="adminPanelTab === 'maintenance'" *ngIf="isSocietyAdmin()">
+        <span class="tab-icon">🏢</span>
+        <span class="tab-label">Maintenance Payment</span>
+      </button>
+      <!-- Society Announcements - Society Admin Only -->
+      <button class="tab-button" (click)="selectAdminTab('society-announcements')" [class.active]="adminPanelTab === 'society-announcements'" *ngIf="isSocietyAdmin()">
+        <span class="tab-icon">📢</span>
+        <span class="tab-label">Society Announcements</span>
+      </button>
+      <button class="tab-button" (click)="openGuestManagementModal()" *ngIf="isSocietyAdmin()">
+        <span class="tab-icon">🚪</span>
+        <span class="tab-label">Guest Management</span>
+      </button>
+      <!-- Admin Users - Super Admin Only -->
+      <button class="tab-button" (click)="selectAdminTab('admin-users')" [class.active]="adminPanelTab === 'admin-users'" *ngIf="isSuperAdmin()">
+        <span class="tab-icon">🔐</span>
+        <span class="tab-label">Admin Users</span>
+      </button>
+      <!-- Security Users - Admins Only -->
+      <button class="tab-button" (click)="selectAdminTab('security-users')" [class.active]="adminPanelTab === 'security-users'" *ngIf="isAdminUser()">
+        <span class="tab-icon">🛡️</span>
+        <span class="tab-label">Security Users</span>
+      </button>
+      <!-- Society Management - Super Admin Only -->
+      <button class="tab-button" (click)="selectAdminTab('societies')" [class.active]="adminPanelTab === 'societies'" *ngIf="isSuperAdmin()">
+        <span class="tab-icon">🏘️</span>
+        <span class="tab-label">Society Management</span>
+      </button>
+      <!-- Settings - Super Admin Only -->
+      <button class="tab-button" (click)="selectAdminTab('settings')" [class.active]="adminPanelTab === 'settings'" *ngIf="isSuperAdmin()">
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-label">Settings</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="dashboard-main">
+    <div class="container">
+      <!-- Quick Actions Panel - Hidden for Admin -->
+      <section class="quick-actions-panel" *ngIf="!isAdminUser()">
+        <h2><span class="section-icon">⚡</span>Quick Access</h2>
+        <div class="actions-grid">
+          <!-- Security Guard Widgets - Only Guest Management and User Directory -->
+          <ng-container *ngIf="isSecurityGuard()">
+            <div class="action-widget" (click)="openGuestManagementModal()"><span class="action-icon">🚪</span><span class="widget-title-main">Guest Management</span><span class="notification-badge-widget" *ngIf="unreadApprovalsCount > 0">{{ unreadApprovalsCount }}</span></div>
+            <div class="action-widget" (click)="openUserDirectory()"><span class="action-icon">👥</span><span class="widget-title-main">User Directory</span></div>
+          </ng-container>
+
+          <!-- Regular User Widgets - All 7 widgets -->
+          <ng-container *ngIf="!isSecurityGuard()">
+          <div class="action-widget" (click)="navigateToMarketplace()">
+            <span class="action-icon">🏪</span>
+            <span class="widget-title-main">Market Place<br><small class="widget-subtitle">Global Players</small></span>
+          </div>
+          <div class="action-widget" (click)="openCRMarketplace()">
+            <span class="action-icon">🍔</span>
+            <span class="widget-title-main">CR Market Place</span>
+          </div>
+          <div class="action-widget" (click)="openAmenitiesModal()"><span class="action-icon">🎾</span><span class="widget-title-main">Amenities</span></div>
+          <div class="action-widget" (click)="openRealEstateModal('buy')"><span class="action-icon">�</span><span class="widget-title-main">NoBroker-Internal</span></div>
+          <div class="action-widget"><span class="action-icon">🛒</span><span class="widget-title-main">Orders</span></div>
+          <div class="action-widget"><span class="action-icon">🎫</span><span class="widget-title-main">Bookings</span></div>
+          <div class="action-widget" (click)="openGuestManagementModal()"><span class="action-icon">🚪</span><span class="widget-title-main">Guest Management</span><span class="notification-badge-widget" *ngIf="unreadApprovalsCount > 0">{{ unreadApprovalsCount }}</span></div>
+          <div class="action-widget" (click)="openUserDirectory()"><span class="action-icon">👥</span><span class="widget-title-main">User Directory</span></div>
+          </ng-container>
+        </div>
+      </section>
+
+      <!-- Split Layout: Posts and Maintenance Payment -->
+      <div class="split-layout" [class.admin-layout]="isAdminUser()">
+        <!-- Left Column: Posts (Wider) - Hidden for Admin -->
+        <div class="left-column left-column-wide" *ngIf="!isAdminUser()">
+          
+          <!-- Post Type Selector -->
+          <div class="post-type-selector">
+            <button 
+              class="post-type-btn" 
+              [class.active]="selectedPostType === 'announcements'"
+              (click)="selectPostType('announcements')">
+              📢 Announcements
+            </button>
+            <button 
+              class="post-type-btn" 
+              [class.active]="selectedPostType === 'complaints'"
+              (click)="selectPostType('complaints')">
+              🔔 Complaints & Requests
+            </button>
+            <button 
+              class="post-type-btn" 
+              [class.active]="selectedPostType === 'community'"
+              (click)="selectPostType('community')">
+              👥 Community Posts
+            </button>
+            <!-- Security & Owner Exchanges - Visible for Security users and Regular users -->
+            <button 
+              class="post-type-btn" 
+              [class.active]="selectedPostType === 'security-exchanges'"
+              (click)="selectPostType('security-exchanges')">
+              🛡️ Security & Owner Exchanges
+            </button>
+          </div>
+
+          <!-- Announcements Section - Full Page -->
+          <section class="content-section announcements-section" *ngIf="selectedPostType === 'announcements'">
+        <div class="section-header">
+          <h2><span class="section-icon">📢</span>Announcements</h2>
+          <a href="javascript:void(0)" class="view-all-link">View All →</a>
+        </div>
+        <div class="section-content full-page-content">
+          <div class="announcement-item" *ngIf="filteredAnnouncements.length === 0">
+            <p class="no-data">No announcements available. Society Admins can create announcements from the Society Announcements tab.</p>
+          </div>
+          <div class="announcement-item" *ngFor="let announcement of filteredAnnouncements">
+            <div class="announcement-meta">
+              <span class="announcement-date">{{ announcement.createdAt ? (announcement.createdAt | date: 'MMM d, y • h:mm a') : 'Recent' }}</span>
+              <span class="announcement-priority" [ngClass]="(announcement.priority || 'medium').toLowerCase()">{{ announcement.priority || 'Medium' }}</span>
+            </div>
+            <h3>{{ announcement.title }}</h3>
+            <p>{{ announcement.content }}</p>
+            <div class="announcement-author" *ngIf="announcement.authorName">
+              <small>Posted by: {{ announcement.authorName }}</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Complaints & Requests Section - Full Page -->
+      <section class="content-section complaints-section" *ngIf="selectedPostType === 'complaints'">
+        <div class="section-header">
+          <h2><span class="section-icon">🔔</span>Complaints & Requests</h2>
+          <a href="javascript:void(0)" class="view-all-link">View All →</a>
+        </div>
+        <div class="section-content full-page-content">
+          <div class="complaint-item" *ngIf="filteredComplaints.length === 0">
+            <p class="no-data">No complaints or requests filed yet. Users can file complaints using the button below.</p>
+          </div>
+          <div class="complaint-item" *ngFor="let complaint of filteredComplaints">
+            <div class="complaint-status" [ngClass]="(complaint.status || 'OPEN').toLowerCase().replace('_', '-')">{{ complaint.status || 'OPEN' }}</div>
+            <h3>{{ complaint.title }}</h3>
+            <p class="complaint-meta">
+              <span *ngIf="complaint.reporterName">Filed by {{ complaint.reporterName }} • </span>
+              <span *ngIf="complaint.category">{{ complaint.category }} • </span>
+              {{ complaint.createdAt ? (complaint.createdAt | date: 'MMM d, y') : 'Recent' }}
+            </p>
+            <p class="complaint-desc">{{ complaint.description }}</p>
+            <div class="complaint-footer">
+              <small *ngIf="complaint.assignedTo">Assigned to: {{ complaint.assignedTo }}</small>
+              <button class="complaint-details-btn" (click)="openComplaintDetail(complaint)" *ngIf="isSocietyAdmin()">
+                View Details & Respond
+              </button>
+            </div>
+          </div>
+        </div>
+        <button class="section-action-btn" (click)="openComplaintModal()">+ File New Complaint</button>
+      </section>
+
+      <!-- Community Posts Section - Full Page -->
+      <section class="content-section community-section" *ngIf="selectedPostType === 'community'">
+        <div class="section-header">
+          <h2><span class="section-icon">👥</span>Community Posts</h2>
+          <a href="javascript:void(0)" class="view-all-link">View All →</a>
+        </div>
+        <div class="section-content full-page-content">
+          <div class="community-post" *ngIf="filteredCommunityPosts.length === 0">
+            <p class="no-data">No community posts yet. Be the first to share something with your community!</p>
+          </div>
+          <div class="community-post" *ngFor="let post of filteredCommunityPosts">
+            <div class="post-header">
+              <div class="post-avatar" [style.background]="getRandomColor()">{{ getInitials(post.authorName) }}</div>
+              <div class="post-info">
+                <h4>{{ post.authorName || 'Community Member' }}</h4>
+                <span class="post-time">{{ post.createdAt ? (post.createdAt | date: 'MMM d, y • h:mm a') : 'Recent' }}</span>
+                <span class="post-category" *ngIf="post.category">{{ post.category }}</span>
+              </div>
+            </div>
+            <h3 class="post-title" *ngIf="post.title">{{ post.title }}</h3>
+            <p class="post-content">{{ post.content }}</p>
+            <div class="post-stats">
+              <span>👍 {{ post.likesCount || 0 }}</span>
+              <span>💬 {{ post.comments || 0 }}</span>
+            </div>
+          </div>
+        </div>
+        <button class="section-action-btn" (click)="openCommunityPostModal()">+ Create Post</button>
+      </section>
+
+      <!-- Security & Owner Exchanges Section - Full Page -->
+      <section class="content-section security-exchanges-section" *ngIf="selectedPostType === 'security-exchanges'">
+        <div class="section-header">
+          <h2><span class="section-icon">🛡️</span>Security & Owner Exchanges</h2>
+          <a href="javascript:void(0)" class="view-all-link">View All →</a>
+        </div>
+        <div class="section-content full-page-content">
+          <div class="exchange-post" *ngIf="filteredSecurityExchanges.length === 0">
+            <p class="no-data">No security exchanges yet. Security guards and residents can communicate about entry/exit related queries here.</p>
+          </div>
+          <div class="exchange-post" *ngFor="let exchange of filteredSecurityExchanges">
+            <div class="post-header">
+              <div class="post-avatar" [style.background]="getRandomColor()">{{ getInitials(exchange.authorName) }}</div>
+              <div class="post-meta">
+                <h4 class="post-author">{{ exchange.authorName }}
+                  <span class="post-type-badge" [class.badge-security]="exchange.authorType === 'security'" [class.badge-owner]="exchange.authorType === 'owner'">
+                    {{ exchange.authorType === 'security' ? '🛡️ Security' : '👤 Resident' }}
+                  </span>
+                </h4>
+                <span class="post-time">{{ exchange.createdAt ? (exchange.createdAt | date: 'MMM d, y • h:mm a') : 'Just now' }}</span>
+              </div>
+            </div>
+            <h3 class="post-title" *ngIf="exchange.title">{{ exchange.title }}</h3>
+            <p class="post-content">{{ exchange.content }}</p>
+            <div class="post-stats">
+              <span>💬 {{ exchange.repliesCount || 0 }} Replies</span>
+              <span *ngIf="exchange.category">🏷️ {{ exchange.category }}</span>
+            </div>
+          </div>
+        </div>
+        <button class="section-action-btn" (click)="openSecurityExchangeModal()">+ New Message</button>
+      </section>
+        </div>
+
+        <!-- Right Column: Maintenance Payment - Hidden for Security Users -->
+        <div class="right-column" [class.right-column-full]="isAdminUser()" [class.right-column-narrow]="!isAdminUser()">
+          <!-- Regular User Payment Section - Not shown to Security users -->
+          <section class="payment-section" *ngIf="user && !isAdminUser() && !isSecurityGuard()">
+            <div class="section-header">
+              <h2><span class="section-icon">💳</span>Maintenance</h2>
+            </div>
+            <div class="payment-quarters">
+              <ng-container *ngFor="let quarter of maintenanceQuarters; let i = index">
+                <div class="quarter-card-compact" [class.paid]="quarter.status === 'paid'">
+                  <div class="quarter-header-compact">
+                    <span class="quarter-name-compact">{{ quarter.name }}</span>
+                    <span class="quarter-amount-compact">₹{{ quarter.amount }}</span>
+                  </div>
+                  <button class="pay-btn-compact" 
+                          (click)="payMaintenance(quarter)" 
+                          [disabled]="quarter.status === 'paid'"
+                          [class.paid-btn]="quarter.status === 'paid'">
+                    {{ quarter.status === 'paid' ? '✓ Paid' : 'Pay' }}
+                  </button>
+                </div>
+              </ng-container>
+            </div>
+
+            <!-- Aggregated Additional Charges Section -->
+            <div class="additional-charges-section" *ngIf="getAggregatedAdditionalFields().size > 0">
+              <div class="charges-header">Additional Charges</div>
+              <div class="charges-list">
+                <ng-container *ngFor="let charge of getAggregatedAdditionalFields() | keyvalue">
+                  <div class="charge-item">
+                    <span class="charge-name">{{ charge.key }}:</span>
+                    <span class="charge-amount">₹{{ charge.value }}</span>
+                  </div>
+                </ng-container>
+              </div>
+            </div>
+            
+            <!-- Summary Section -->
+            <div class="total-payment-compact" *ngIf="getTotalDue() > 0 || getAdditionalTotalDue() > 0">
+              <div class="summary-line">
+                <span class="summary-label">Maintenance Due:</span>
+                <span class="summary-value">₹{{ getTotalDue() }}</span>
+              </div>
+              <div class="summary-line">
+                <span class="summary-label">Charges Due:</span>
+                <span class="summary-value">₹{{ getAdditionalTotalDue() }}</span>
+              </div>
+              <div class="summary-line total-grand">
+                <span class="summary-label-bold">Grand Total:</span>
+                <span class="summary-value-bold">₹{{ getTotalDue() + getAdditionalTotalDue() }}</span>
+              </div>
+              <button class="pay-all-btn-compact" (click)="payAllMaintenance()">
+                Pay All
+              </button>
+            </div>
+            
+            <div class="all-paid-message-compact" *ngIf="getTotalDue() === 0 && getAdditionalTotalDue() === 0">
+              <div class="success-text">✓ All Paid</div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- Admin Panel Content - Inline -->
+      <div class="admin-panel-content" *ngIf="isAdminUser()">
+        <!-- Overview Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'overview'">
+          <div class="overview-header">
+            <h2>Dashboard Overview</h2>
+            <div class="overview-actions">
+              <button class="refresh-btn" (click)="refreshDashboardStats()" title="Refresh Dashboard">
+                🔄 Refresh
+              </button>
+              <p class="last-updated">Last updated: {{ getCurrentTime() }}</p>
+              <!-- View Audit Logs - Super Admin Only -->
+              <button class="overview-btn" (click)="selectAdminTab('audit')" *ngIf="isSuperAdmin()">View Audit Logs</button>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card" (click)="selectAdminTab('users')" title="Click to view User Management">
+              <div class="stat-icon">👥</div>
+              <div class="stat-info">
+                <h3>{{ isSocietyAdmin() ? 'As on Today' : 'Total Users' }}</h3>
+                <p class="stat-value">{{ totalUsers }}</p>
+                <p class="stat-label" *ngIf="isSocietyAdmin()">{{ user?.societyName }}</p>
+              </div>
+            </div>
+
+            <div class="stat-card" (click)="selectAdminTab('users')" title="Click to view User Management">
+              <div class="stat-icon">👤</div>
+              <div class="stat-info">
+                <h3>Active Users (Today)</h3>
+                <p class="stat-value">{{ activeUsers }}</p>
+              </div>
+            </div>
+
+            <div class="stat-card" [class.non-clickable]="isSocietyAdmin()" (click)="isSuperAdmin() && selectAdminTab('societies')" [title]="isSuperAdmin() ? 'Click to view Society Management' : 'Your Society'">
+              <div class="stat-icon">🏘️</div>
+              <div class="stat-info">
+                <h3>{{ isSocietyAdmin() ? 'Society' : 'Societies' }}</h3>
+                <p class="stat-value">{{ getUniqueSocietiesCount() }}</p>
+                <p class="stat-label" *ngIf="isSocietyAdmin()">{{ user?.societyName }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="overview-sections">
+            <div class="overview-card">
+              <h3>Recent User Registrations{{ isSocietyAdmin() ? ' ('+user?.societyName+')' : '' }}</h3>
+              <div class="recent-list">
+                <div class="recent-item" *ngFor="let user of recentUsers">
+                  <span class="user-name">{{ user.username }}</span>
+                  <span class="user-type">{{ user.userType }}</span>
+                  <span class="user-date">{{ user.registeredDate }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Societies - Super Admin Only -->
+            <div class="overview-card" *ngIf="isSuperAdmin()">
+              <h3>Recent Society Registrations</h3>
+              <div class="recent-list">
+                <div class="recent-item" *ngFor="let society of recentSocieties">
+                  <span class="user-name">{{ society.name }}</span>
+                  <span class="user-type">{{ society.city }}, {{ society.state }}</span>
+                  <span class="user-date">{{ society.createdDate }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Management Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'users'">
+          <app-user-management></app-user-management>
+        </div>
+
+        <!-- Audit Logs Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'audit'">
+          <app-audit-logs></app-audit-logs>
+        </div>
+
+        <!-- Bulk Upload Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'bulk-upload'">
+          <div class="bulk-upload-section">
+            <h2>Bulk User Upload</h2>
+            <p class="section-description">Upload multiple users at once using a CSV file</p>
+
+            <!-- Success/Error Messages -->
+            <div class="message-container">
+              <div class="success-message" *ngIf="uploadSuccessMessage">
+                <span class="icon">✓</span>
+                {{ uploadSuccessMessage }}
+              </div>
+              <div class="error-message" *ngIf="uploadErrorMessage">
+                <span class="icon">✕</span>
+                {{ uploadErrorMessage }}
+              </div>
+            </div>
+
+            <div class="upload-area">
+              <div class="upload-box" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onFileDrop($event)" [class.dragging]="isDragging">
+                <div class="upload-icon">📁</div>
+                <h3>Drop CSV file here</h3>
+                <p>or</p>
+                <label class="upload-btn">
+                  Select File
+                  <input type="file" hidden (change)="onFileSelected($event)" accept=".csv">
+                </label>
+                <p class="upload-info">Supported format: CSV (comma-separated values)</p>
+                <div class="upload-quick-actions">
+                  <button class="upload-submit-btn" (click)="submitBulkUpload()" [disabled]="!uploadedFile">
+                    📤 Upload Bulk User Data
+                  </button>
+                  <span class="selected-file" *ngIf="uploadedFile">Selected: {{ uploadedFile.name }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="template-section">
+              <h3>CSV Template</h3>
+              <p>Download template and fill in user details:</p>
+              <button class="download-template-btn" (click)="downloadBulkTemplate()">📥 Download Template</button>
+              <div class="template-preview">
+                <code>societyName,username,email,phoneNumber,address,userType,ownerType,towerNumber,flatNumber,password</code>
+              </div>
+              <p class="template-hint">
+                Example: <code>NammaSociety,john.doe,john@example.com,9876543210,Flat 101 Tower A,owner,resident,A,101,Pass@123</code>
+              </p>
+              <p class="template-hint">
+                <strong>Note:</strong> Email and phone numbers will be used for payment reminders and announcements
+              </p>
+            </div>
+
+            <div class="upload-preview" *ngIf="uploadedFile">
+              <h3>File Ready: {{ uploadedFile.name }}</h3>
+              <button class="cancel-btn" (click)="clearUpload()">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Management Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'payments'">
+          <div class="payment-management-section">
+            <h2>Payment Management</h2>
+            <p class="section-description">Bulk upload maintenance payment details for all apartments</p>
+
+            <!-- Success/Error Messages -->
+            <div class="message-container">
+              <div class="success-message" *ngIf="uploadSuccessMessage">
+                <span class="message-icon">✓</span>
+                <span class="message-text">{{ uploadSuccessMessage }}</span>
+              </div>
+              <div class="error-message" *ngIf="uploadErrorMessage">
+                <span class="message-icon">✕</span>
+                <span class="message-text">{{ uploadErrorMessage }}</span>
+              </div>
+            </div>
+
+            <div class="upload-area">
+              <div class="upload-box" 
+                (dragover)="onPaymentDragOver($event)" 
+                (dragleave)="onPaymentDragLeave($event)" 
+                (drop)="onPaymentFileDrop($event)" 
+                [class.dragging]="isPaymentDragging">
+                <div class="upload-icon">💳</div>
+                <h3>Drop Payment CSV file here</h3>
+                <p>or</p>
+                <label class="upload-btn">
+                  Select File
+                  <input type="file" hidden (change)="onPaymentFileSelected($event)" accept=".csv">
+                </label>
+                <p class="upload-info">Supported format: CSV (comma-separated values)</p>
+                <div class="upload-quick-actions">
+                  <button class="upload-submit-btn" (click)="submitPaymentUpload()" [disabled]="isUploadingPayment">
+                    <span *ngIf="!isUploadingPayment">💾 Upload Payment Data</span>
+                    <span *ngIf="isUploadingPayment">⏳ Uploading...</span>
+                  </button>
+                  <span class="selected-file" *ngIf="uploadedPaymentFile">Selected: {{ uploadedPaymentFile.name }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="template-section">
+              <h3>Payment CSV Template</h3>
+              <p>Download template and fill in payment details for each apartment:</p>
+              <button class="download-template-btn" (click)="downloadPaymentTemplate()">📥 Download Payment Template</button>
+              <div class="template-preview">
+                <code>towerNumber,flatNumber,quarterName,quarterPeriod,amount,dueDate,status,parkingFee,waterCharges</code>
+              </div>
+              <p class="template-hint">
+                Example: <code>3,B12,Q1 2024,Jan - Mar,15000,2024-03-31,paid</code>
+              </p>
+              <p class="template-hint">
+                Status values: <strong>paid</strong> or <strong>pending</strong>
+              </p>
+            </div>
+
+            <div class="upload-preview" *ngIf="uploadedPaymentFile">
+              <h3>File Ready: {{ uploadedPaymentFile.name }}</h3>
+              <p class="file-size">Size: {{ (uploadedPaymentFile.size / 1024).toFixed(2) }} KB</p>
+              <button class="upload-submit-btn" (click)="submitPaymentUpload()" [disabled]="isUploadingPayment">
+                <span *ngIf="!isUploadingPayment">💾 Upload Payment Data</span>
+                <span *ngIf="isUploadingPayment">⏳ Uploading...</span>
+              </button>
+              <button class="cancel-btn" (click)="clearPaymentUpload()" [disabled]="isUploadingPayment">Cancel</button>
+            </div>
+
+            <div class="payment-instructions">
+              <h3>Instructions</h3>
+              <ul>
+                <li>Upload a CSV file containing payment details for all apartments</li>
+                <li>The file must include columns: towerNumber, flatNumber, quarterName, quarterPeriod, amount, dueDate, status</li>
+                <li>You can add extra columns for additional charges (e.g., parkingFee, waterCharges)</li>
+                <li>Additional charge values will be stored and included in totals</li>
+                <li>Payment data will be linked to residents based on tower and flat number</li>
+                <li>Residents will see their payment details in the Maintenance Payment section</li>
+                <li>You can upload multiple times - new data will update existing records</li>
+              </ul>
+            </div>
+
+            <!-- Payment Reminders Section -->
+            <div class="payment-reminders-section">
+              <h3>📧 Send Payment Reminders</h3>
+              <p class="section-description">Send email and SMS reminders to residents with pending payments</p>
+              <button class="reminder-btn" (click)="openPaymentReminderModal()">
+                📨 Send Payment Reminders
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Reminder Modal -->
+        <div class="modal-overlay" *ngIf="showPaymentReminderModal" (click)="closePaymentReminderModal()">
+          <div class="modal-content payment-reminder-modal" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+              <h3>📧 Send Payment Reminders</h3>
+              <button class="close-modal" (click)="closePaymentReminderModal()">×</button>
+            </div>
+
+            <div class="modal-body">
+              <div class="reminder-form">
+                <div class="form-group">
+                  <label>Reminder Type:</label>
+                  <select [(ngModel)]="reminderDaysBefore" class="reminder-select">
+                    <option [value]="-7">Overdue (1 week)</option>
+                    <option [value]="-3">Overdue (3 days)</option>
+                    <option [value]="-1">Overdue (1 day)</option>
+                    <option [value]="0" selected>Due Today</option>
+                    <option [value]="3">Due in 3 days</option>
+                    <option [value]="7">Due in 7 days</option>
+                    <option [value]="14">Due in 14 days</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" [(ngModel)]="reminderSendEmail" />
+                    <span>📧 Send Email Notifications</span>
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" [(ngModel)]="reminderSendSMS" />
+                    <span>📱 Send SMS Notifications</span>
+                  </label>
+                </div>
+
+                <div class="reminder-info">
+                  <p><strong>Note:</strong> Reminders will be sent to all residents with pending payments that match the selected criteria.</p>
+                  <p>Email addresses and phone numbers from the user profiles will be used.</p>
+                </div>
+
+                <div class="success-message" *ngIf="reminderSuccessMessage">
+                  <span class="message-icon">✓</span>
+                  <span class="message-text">{{ reminderSuccessMessage }}</span>
+                </div>
+
+                <div class="error-message" *ngIf="reminderErrorMessage">
+                  <span class="message-icon">✕</span>
+                  <span class="message-text">{{ reminderErrorMessage }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="cancel-btn" (click)="closePaymentReminderModal()" [disabled]="isSendingReminders">Cancel</button>
+              <button class="submit-btn" (click)="sendPaymentReminders()" [disabled]="isSendingReminders">
+                <span *ngIf="!isSendingReminders">📨 Send Reminders</span>
+                <span *ngIf="isSendingReminders">⏳ Sending...</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Maintenance Payment Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'maintenance'">
+          <div class="maintenance-payment-section">
+            <h2>Maintenance Payment Dashboard</h2>
+            <p class="section-description">View and manage current year (2026) maintenance payment records for your society, grouped by quarter</p>
+
+            <!-- Quarterly Summary Section -->
+            <div class="quarterly-summary" *ngIf="maintenanceQuarterTotals.size > 0">
+              <h3>Summary by Quarter
+                <span *ngIf="filterTower" style="font-size: 0.9em; color: #666;"> (Tower {{ filterTower }})</span>
+                <span *ngIf="filterStatus" style="font-size: 0.9em; color: #666;"> ({{ filterStatus | titlecase }})</span>
+              </h3>
+              <div class="quarter-summary-grid">
+                <div class="quarter-summary-card" *ngFor="let entry of maintenanceQuarterTotals | keyvalue">
+                  <div class="quarter-name">{{ entry.key }}</div>
+                  <div class="quarter-stat">
+                    <span class="stat-label">Expected:</span>
+                    <span class="stat-amount">₹ {{ entry.value.expected | number:'1.0-0' }}</span>
+                  </div>
+                  <div class="quarter-stat">
+                    <span class="stat-label">Collected:</span>
+                    <span class="stat-amount collected">₹ {{ entry.value.collected | number:'1.0-0' }}</span>
+                  </div>
+                  <div class="quarter-stat">
+                    <span class="stat-label">Pending:</span>
+                    <span class="stat-amount pending">₹ {{ entry.value.pending | number:'1.0-0' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="maintenance-info-box">
+              <div class="info-item">
+                <span class="info-label">Total Collections Expected:</span>
+                <span class="info-value">₹ {{ totalCollectionsExpected | number:'1.0-0' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Total Collected:</span>
+                <span class="info-value">₹ {{ totalCollected | number:'1.0-0' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Total Pending:</span>
+                <span class="info-value">₹ {{ totalPending | number:'1.0-0' }}</span>
+              </div>
+            </div>
+
+            <div class="maintenance-filters">
+              <div class="filter-group">
+                <label for="tower-filter" class="filter-label">Filter by Tower:</label>
+                <select id="tower-filter" class="filter-select" [(ngModel)]="filterTower" (ngModelChange)="onTowerFilterChange()">
+                  <option value="">All Towers</option>
+                  <option *ngFor="let tower of availableTowers" [value]="tower">Tower {{ tower }}</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label for="status-filter" class="filter-label">Filter by Status:</label>
+                <select id="status-filter" class="filter-select" [(ngModel)]="filterStatus" (ngModelChange)="onStatusFilterChange()">
+                  <option value="">All Status</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="maintenance-table-container">
+              <table class="maintenance-table" *ngIf="getFilteredMaintenancePayments().length > 0">
+                <thead>
+                  <tr>
+                    <th>Tower-Flat</th>
+                    <th>Quarter</th>
+                    <th>Period</th>
+                    <th>Amount (₹)</th>
+                    <th>Additional (₹)</th>
+                    <th>Total (₹)</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let payment of getFilteredMaintenancePayments()">
+                    <td><strong>{{ payment.towerFlat }}</strong></td>
+                    <td>{{ payment.quarter }}</td>
+                    <td>{{ payment.quarterPeriod }}</td>
+                    <td class="amount-cell">{{ payment.amount | number:'1.0-0' }}</td>
+                    <td class="amount-cell">{{ getAdditionalFieldsTotal(payment.additionalFields) | number:'1.0-0' }}</td>
+                    <td class="amount-cell total">
+                      <strong>{{ (payment.amount + getAdditionalFieldsTotal(payment.additionalFields)) | number:'1.0-0' }}</strong>
+                    </td>
+                    <td>{{ payment.dueDate }}</td>
+                    <td>
+                      <span class="status-badge" [class.paid]="payment.status === 'paid' || payment.statusText === 'Paid'" 
+                            [class.pending]="payment.status === 'pending' || payment.statusText === 'Pending'">
+                        {{ payment.status || payment.statusText }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <!-- No payments message -->
+              <div class="no-data-message" *ngIf="getFilteredMaintenancePayments().length === 0">
+                <div class="icon">📊</div>
+                <h3>No Payment Records Found</h3>
+                <p *ngIf="maintenancePayments.length === 0">
+                  No payment data has been uploaded for this society yet.<br>
+                  Please use the <strong>Payment Management</strong> tab above to upload payment data via CSV.
+                </p>
+                <p *ngIf="maintenancePayments.length > 0 && filterTower">
+                  No payment records found for <strong>Tower {{ filterTower }}</strong>.<br>
+                  Try selecting "All Towers" or check if payment data has been uploaded for this tower.
+                </p>
+                <p *ngIf="maintenancePayments.length > 0 && !filterTower && filterStatus">
+                  No payment records found with status <strong>{{ filterStatus | titlecase }}</strong>.<br>
+                  Try changing the status filter or select "All Status".
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Users Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'admin-users'">
+          <div class="admin-users-section">
+            <h2>Create Admin User</h2>
+            <p class="section-description">Create society-specific admin accounts that can manage users, handle bulk uploads, and manage payments for their assigned society</p>
+
+            <div class="admin-user-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="adminUserType">User Type *</label>
+                  <select id="adminUserType" [(ngModel)]="newAdminUserType" class="form-control" name="adminUserType">
+                    <option value="admin">Society Admin</option>
+                    <option value="superadmin" *ngIf="isSuperAdmin()">Super Admin</option>
+                  </select>
+                  <p class="form-hint" *ngIf="newAdminUserType === 'admin'">Society Admin: Full access to assigned society only</p>
+                  <p class="form-hint" *ngIf="newAdminUserType === 'superadmin'">Super Admin: Full access to all societies and can create new societies</p>
+                </div>
+              </div>
+
+              <div class="form-row" *ngIf="newAdminUserType === 'admin'">
+                <div class="form-group">
+                  <label for="adminSociety">Assign Society *</label>
+                  <select id="adminSociety" [(ngModel)]="newAdminSociety" class="form-control" name="adminSociety">
+                    <option value="">Select Society</option>
+                    <option *ngFor="let society of societies" [value]="society.name">{{ society.name }}</option>
+                  </select>
+                  <p class="form-hint">Society-specific admin will only manage this society</p>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="adminUsername">Admin Username *</label>
+                  <input type="text" id="adminUsername" [(ngModel)]="newAdminUsername" placeholder="e.g., admin@greenhts" class="form-control" name="adminUsername">
+                </div>
+                <div class="form-group">
+                  <label for="adminEmail">Admin Email *</label>
+                  <input type="email" id="adminEmail" [(ngModel)]="newAdminEmail" placeholder="admin@example.com" class="form-control" name="adminEmail">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="adminPassword">Password *</label>
+                  <input type="password" id="adminPassword" [(ngModel)]="newAdminPassword" placeholder="Enter strong password" class="form-control" name="adminPassword">
+                  <p class="form-hint">Password must be at least 8 characters</p>
+                </div>
+                <div class="form-group">
+                  <label for="adminConfirmPassword">Confirm Password *</label>
+                  <input type="password" id="adminConfirmPassword" [(ngModel)]="newAdminConfirmPassword" placeholder="Confirm password" class="form-control" name="adminConfirmPassword">
+                </div>
+              </div>
+
+              <div class="admin-permissions-box">
+                <h4>Permissions for This Admin</h4>
+                <div class="permission-items">
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-users" checked disabled class="permission-check">
+                    <label for="perm-users">✓ Create/Manage Users <span *ngIf="newAdminUserType === 'admin'">(for assigned society only)</span></label>
+                  </div>
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-bulk" checked disabled class="permission-check">
+                    <label for="perm-bulk">✓ Bulk User Upload <span *ngIf="newAdminUserType === 'admin'">(for assigned society only)</span></label>
+                  </div>
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-payments" checked disabled class="permission-check">
+                    <label for="perm-payments">✓ Payment Management <span *ngIf="newAdminUserType === 'admin'">(for assigned society only)</span></label>
+                  </div>
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-maintenance" checked disabled class="permission-check">
+                    <label for="perm-maintenance">✓ View Maintenance Payments <span *ngIf="newAdminUserType === 'admin'">(for assigned society only)</span></label>
+                  </div>
+                  <div class="permission-item" *ngIf="newAdminUserType === 'superadmin'">
+                    <input type="checkbox" id="perm-societies" checked disabled class="permission-check">
+                    <label for="perm-societies">✓ Society Management (Create/Edit/Delete Societies)</label>
+                  </div>
+                  <div class="permission-item" *ngIf="newAdminUserType === 'superadmin'">
+                    <input type="checkbox" id="perm-create-super" checked disabled class="permission-check">
+                    <label for="perm-create-super">✓ Create Super Admins</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn-create-admin" (click)="createAdminUser()">🔐 Create Admin User</button>
+                <button class="btn-cancel" (click)="resetAdminForm()">Cancel</button>
+              </div>
+
+              <div class="success-message" *ngIf="adminCreateSuccess">
+                <span class="message-icon">✓</span>
+                <span class="message-text">{{ adminCreateSuccess }}</span>
+              </div>
+              <div class="error-message" *ngIf="adminCreateError">
+                <span class="message-icon">✕</span>
+                <span class="message-text">{{ adminCreateError }}</span>
+              </div>
+            </div>
+
+            <!-- Existing Admin Users List -->
+            <div class="existing-admins-section">
+              <h3>Existing Admin Users</h3>
+              <div class="admins-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Society</th>
+                      <th>Username</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Created Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let admin of existingAdmins">
+                      <td>{{ admin.societyName }}</td>
+                      <td>{{ admin.username }}</td>
+                      <td>{{ admin.email }}</td>
+                      <td>
+                        <span class="badge" [class.badge-superadmin]="admin.userType === 'superadmin'" [class.badge-admin]="admin.userType === 'admin'">
+                          {{ admin.userType === 'superadmin' ? 'Super Admin' : 'Society Admin' }}
+                        </span>
+                      </td>
+                      <td>{{ admin.createdDate }}</td>
+                      <td><span class="badge badge-active">Active</span></td>
+                      <td><button class="btn-small btn-delete" (click)="deleteAdminUser(admin.id)">Delete</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Users Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'security-users'">
+          <div class="admin-users-section">
+            <h2>🛡️ Create Security Guard User</h2>
+            <p class="section-description">Create security guard accounts that can access the <strong>Approval Logs</strong> feature to manage visitor requests and gate entry approvals.</p>
+
+            <div class="admin-user-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="securityUsername">Security Username *</label>
+                  <input type="text" id="securityUsername" [(ngModel)]="newSecurityUsername" placeholder="e.g., security1, gate_guard" class="form-control" name="securityUsername">
+                  <p class="form-hint">This will be used for login</p>
+                </div>
+                <div class="form-group">
+                  <label for="securityEmail">Email</label>
+                  <input type="email" id="securityEmail" [(ngModel)]="newSecurityEmail" placeholder="security@example.com (optional)" class="form-control" name="securityEmail">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="securitySociety">Assigned Society *</label>
+                  <select id="securitySociety" [(ngModel)]="newSecuritySociety" class="form-control" name="securitySociety">
+                    <option value="">-- Select Society --</option>
+                    <option *ngFor="let society of availableSocietiesForSecurity" [value]="society">{{ society }}</option>
+                  </select>
+                  <p class="form-hint">Security guard will manage approvals for this society only</p>
+                </div>
+                <div class="form-group">
+                  <label for="securityFullName">Full Name</label>
+                  <input type="text" id="securityFullName" [(ngModel)]="newSecurityFullName" placeholder="e.g., Rajesh Kumar" class="form-control" name="securityFullName">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="securityPhone">Phone Number</label>
+                  <input type="tel" id="securityPhone" [(ngModel)]="newSecurityPhone" placeholder="+91-9876543210" class="form-control" name="securityPhone">
+                </div>
+                <div class="form-group">
+                  <!-- Empty space for alignment -->
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="securityPassword">Password *</label>
+                  <input type="password" id="securityPassword" [(ngModel)]="newSecurityPassword" placeholder="Enter strong password" class="form-control" name="securityPassword">
+                  <p class="form-hint">Password must be at least 8 characters</p>
+                </div>
+                <div class="form-group">
+                  <label for="securityConfirmPassword">Confirm Password *</label>
+                  <input type="password" id="securityConfirmPassword" [(ngModel)]="newSecurityConfirmPassword" placeholder="Confirm password" class="form-control" name="securityConfirmPassword">
+                </div>
+              </div>
+
+              <div class="admin-permissions-box">
+                <h4>🔐 Security Guard Permissions</h4>
+                <div class="permission-items">
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-approval-logs" checked disabled class="permission-check">
+                    <label for="perm-approval-logs">✓ <strong>Access Approval Logs Tab</strong> (Create visitor approval requests)</label>
+                  </div>
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-view-requests" checked disabled class="permission-check">
+                    <label for="perm-view-requests">✓ View Pending Approval Requests</label>
+                  </div>
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-mark-entry" checked disabled class="permission-check">
+                    <label for="perm-mark-entry">✓ Mark Visitor Entry/Exit</label>
+                  </div>
+                  <div class="permission-item">
+                    <input type="checkbox" id="perm-view-logs" checked disabled class="permission-check">
+                    <label for="perm-view-logs">✓ View Approval History Logs</label>
+                  </div>
+                </div>
+                <p class="form-hint" style="margin-top: 10px;">
+                  <strong>ℹ️ Note:</strong> Security users can only access the Guest Management feature. They cannot manage users, payments, or other admin functions.
+                </p>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn-create-admin" (click)="createSecurityUser()">🛡️ Create Security User</button>
+                <button class="btn-cancel" (click)="resetSecurityForm()">Cancel</button>
+              </div>
+
+              <div class="success-message" *ngIf="securityCreateSuccess">
+                <span class="message-icon">✓</span>
+                <span class="message-text">{{ securityCreateSuccess }}</span>
+              </div>
+              <div class="error-message" *ngIf="securityCreateError">
+                <span class="message-icon">✕</span>
+                <span class="message-text">{{ securityCreateError }}</span>
+              </div>
+            </div>
+
+            <!-- Existing Security Users List -->
+            <div class="existing-admins-section">
+              <h3>Existing Security Guard Users</h3>
+              <div class="admins-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Assigned Society</th>
+                      <th>Full Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Created Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let security of existingSecurityUsers">
+                      <td><strong>{{ security.username }}</strong></td>
+                      <td><span class="badge badge-info">{{ security.societyName || 'N/A' }}</span></td>
+                      <td>{{ security.fullName || 'N/A' }}</td>
+                      <td>{{ security.email || 'N/A' }}</td>
+                      <td>{{ security.phoneNumber || 'N/A' }}</td>
+                      <td>{{ security.createdDate }}</td>
+                      <td><span class="badge badge-active">Active</span></td>
+                      <td><button class="btn-small btn-delete" (click)="deleteSecurityUser(security.id)">Delete</button></td>
+                    </tr>
+                    <tr *ngIf="existingSecurityUsers.length === 0">
+                      <td colspan="8" style="text-align: center; padding: 20px; color: #888;">
+                        No security users created yet. Create your first security guard account above!
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Society Management Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'societies'">
+          <div class="society-management-section">
+            <h2>Society Management</h2>
+            <p class="section-description">Create and manage societies with complete address details. These societies will be available when creating admin users.</p>
+
+            <div class="society-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="societyName">Society Name *</label>
+                  <input type="text" id="societyName" [(ngModel)]="newSociety.name" placeholder="e.g., Green Heights, Sky Towers" class="form-control" name="societyName">
+                </div>
+                <div class="form-group">
+                  <label for="societyStreet">Street *</label>
+                  <input type="text" id="societyStreet" [(ngModel)]="newSociety.street" placeholder="e.g., MG Road, Brigade Road" class="form-control" name="societyStreet">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="societyArea">Area *</label>
+                  <input type="text" id="societyArea" [(ngModel)]="newSociety.area" placeholder="e.g., Indiranagar, Koramangala" class="form-control" name="societyArea">
+                </div>
+                <div class="form-group">
+                  <label for="societyCity">City *</label>
+                  <input type="text" id="societyCity" [(ngModel)]="newSociety.city" placeholder="e.g., Bangalore, Mumbai" class="form-control" name="societyCity">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="societyState">State *</label>
+                  <input type="text" id="societyState" [(ngModel)]="newSociety.state" placeholder="e.g., Karnataka, Maharashtra" class="form-control" name="societyState">
+                </div>
+                <div class="form-group">
+                  <label for="societyCountry">Country *</label>
+                  <input type="text" id="societyCountry" [(ngModel)]="newSociety.country" placeholder="e.g., India" class="form-control" name="societyCountry">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="societyPincode">Pincode *</label>
+                  <input type="text" id="societyPincode" [(ngModel)]="newSociety.pincode" placeholder="e.g., 560038, 400001" class="form-control" name="societyPincode" maxlength="6">
+                  <p class="form-hint">Must be 6 digits</p>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn-create-society" (click)="createSociety()">🏘️ Create Society</button>
+                <button class="btn-cancel" (click)="resetSocietyForm()">Cancel</button>
+              </div>
+
+              <div class="success-message" *ngIf="societyCreateSuccess">
+                <span class="message-icon">✓</span>
+                <span class="message-text">{{ societyCreateSuccess }}</span>
+              </div>
+              <div class="error-message" *ngIf="societyCreateError">
+                <span class="message-icon">✕</span>
+                <span class="message-text">{{ societyCreateError }}</span>
+              </div>
+            </div>
+
+            <!-- Bulk Upload Section -->
+            <div class="bulk-upload-section">
+              <h3>📁 Bulk Upload Societies from CSV</h3>
+              <p class="section-hint">Upload multiple societies at once using a CSV file. Download the template to ensure correct format.</p>
+              
+              <div class="bulk-upload-instructions">
+                <h4>CSV Format Requirements:</h4>
+                <p>Your CSV file should have the following columns (in this order):</p>
+                <code>name,street,area,city,state,country,pincode,totalTowers,totalFlats</code>
+                <p class="example">Example:</p>
+                <code>Green Heights,MG Road,Indiranagar,Bangalore,Karnataka,India,560038,5,50<br/>
+                       Sky Towers,Brigade Road,Koramangala,Bangalore,Karnataka,India,560034,8,80</code>
+                <p class="note">⚠️ Pincode must be exactly 6 digits</p>
+              </div>
+
+              <!-- File Upload Area -->
+              <div class="file-upload-area" 
+                   (dragover)="onBulkSocietyDragOver($event)" 
+                   (dragleave)="onBulkSocietyDragLeave($event)" 
+                   (drop)="onBulkSocietyDrop($event)"
+                   [class.drag-over]="bulkSocietyDragOver">
+                <div class="upload-content">
+                  <span class="upload-icon">📤</span>
+                  <h4>Drag & Drop Your CSV File Here</h4>
+                  <p>or</p>
+                  <label for="bulkSocietyFile" class="file-input-label">
+                    <span class="browse-button">Browse Files</span>
+                    <input type="file" id="bulkSocietyFile" accept=".csv" 
+                           (change)="onBulkSocietyFileSelected($event)" 
+                           style="display: none;">
+                  </label>
+                  <p class="file-info" *ngIf="bulkSocietyFile">
+                    Selected: <strong>{{ bulkSocietyFile.name }}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <!-- Upload Button -->
+              <div class="upload-actions">
+                <button class="btn-upload-bulk" 
+                        (click)="submitBulkSocietyUpload()" 
+                        [disabled]="!bulkSocietyFile || isBulkSocietyUploading">
+                  <span *ngIf="!isBulkSocietyUploading">📤 Upload Societies</span>
+                  <span *ngIf="isBulkSocietyUploading">⏳ Uploading...</span>
+                </button>
+              </div>
+
+              <!-- Upload Status Messages -->
+              <div class="success-message" *ngIf="bulkSocietyUploadSuccess">
+                <span class="message-icon">✓</span>
+                <span class="message-text">{{ bulkSocietyUploadSuccess }}</span>
+              </div>
+              <div class="error-message" *ngIf="bulkSocietyUploadError">
+                <span class="message-icon">✕</span>
+                <span class="message-text">{{ bulkSocietyUploadError }}</span>
+              </div>
+            </div>
+
+            <!-- Existing Societies List -->
+            <div class="existing-societies-section">
+              <h3>Existing Societies</h3>
+              <div class="societies-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Society Name</th>
+                      <th>Street</th>
+                      <th>Area</th>
+                      <th>City</th>
+                      <th>State</th>
+                      <th>Country</th>
+                      <th>Pincode</th>
+                      <th>Created Date</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let society of societies">
+                      <td><strong>{{ society.name }}</strong></td>
+                      <td>{{ society.street }}</td>
+                      <td>{{ society.area }}</td>
+                      <td>{{ society.city }}</td>
+                      <td>{{ society.state }}</td>
+                      <td>{{ society.country }}</td>
+                      <td>{{ society.pincode }}</td>
+                      <td>{{ society.createdDate }}</td>
+                      <td><button class="btn-small btn-delete" (click)="deleteSociety(society.id)">Delete</button></td>
+                    </tr>
+                    <tr *ngIf="societies.length === 0">
+                      <td colspan="9" class="no-data">No societies found. Create your first society above.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'settings'">
+          <div class="settings-section">
+            <h2>Admin Settings</h2>
+            
+            <div class="settings-group">
+              <h3>Default Admin Configuration</h3>
+              <div class="setting-item">
+                <label>Default Password for New Admins</label>
+                <input type="password" class="setting-input" placeholder="Enter default admin password" [value]="defaultAdminPassword">
+                <p class="setting-hint">This password will be required to change on first login</p>
+              </div>
+              <div class="setting-item">
+                <label>Password Expiry Days (0 = never)</label>
+                <input type="number" class="setting-input" [value]="passwordExpiryDays">
+              </div>
+              <button class="save-btn">💾 Save Settings</button>
+            </div>
+
+            <div class="settings-group">
+              <h3>System Configuration</h3>
+              <div class="setting-item">
+                <label>
+                  <input type="checkbox" [checked]="allowPublicRegistration">
+                  Allow Public User Registration
+                </label>
+              </div>
+              <div class="setting-item">
+                <label>
+                  <input type="checkbox" [(ngModel)]="enableAuditLogging">
+                  Enable Audit Logging (recommended)
+                </label>
+              </div>
+              <div class="setting-item">
+                <label>Audit Log Retention (days)</label>
+                <input type="number" class="setting-input" [(ngModel)]="auditLogRetentionDays" min="1" max="3650">
+                <p class="setting-hint">Default retention is 15 days. Set 0 to disable retention cleanup.</p>
+              </div>
+              <button class="save-btn" (click)="saveAuditConfig()">💾 Save Settings</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Society Announcements Tab (Society Admin Only) -->
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'society-announcements'">
+          <div class="announcements-section">
+            <h2>Society Announcements</h2>
+            <p class="section-description">Create and manage announcements for your society members</p>
+            
+            <!-- Create New Announcement Form -->
+            <div class="announcement-form-container">
+              <h3>Create New Announcement</h3>
+              <form class="announcement-form" (ngSubmit)="createSocietyAnnouncement()">
+                <div class="form-group">
+                  <label for="announcement-title">Title *</label>
+                  <input 
+                    type="text" 
+                    id="announcement-title" 
+                    class="form-control" 
+                    [(ngModel)]="newAnnouncement.title" 
+                    name="title"
+                    placeholder="Enter announcement title"
+                    required>
+                </div>
+                
+                <div class="form-group">
+                  <label for="announcement-content">Content *</label>
+                  <textarea 
+                    id="announcement-content" 
+                    class="form-control announcement-textarea" 
+                    [(ngModel)]="newAnnouncement.content" 
+                    name="content"
+                    placeholder="Enter announcement content"
+                    rows="5"
+                    required></textarea>
+                </div>
+                
+                <div class="form-group">
+                  <label for="announcement-priority">Priority</label>
+                  <select 
+                    id="announcement-priority" 
+                    class="form-control" 
+                    [(ngModel)]="newAnnouncement.priority" 
+                    name="priority">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                
+                <!-- Notification Options -->
+                <div class="form-group">
+                  <label>Notification Options</label>
+                  <div class="notification-toggles">
+                    <div class="checkbox-wrapper">
+                      <input 
+                        type="checkbox" 
+                        id="announcement-send-email" 
+                        [(ngModel)]="newAnnouncement.sendEmail" 
+                        name="sendEmail">
+                      <label for="announcement-send-email" class="checkbox-label">
+                        📧 Send Email to all society members
+                      </label>
+                    </div>
+                    <div class="checkbox-wrapper">
+                      <input 
+                        type="checkbox" 
+                        id="announcement-send-sms" 
+                        [(ngModel)]="newAnnouncement.sendSMS" 
+                        name="sendSMS">
+                      <label for="announcement-send-sms" class="checkbox-label">
+                        📱 Send SMS to all society members
+                      </label>
+                    </div>
+                  </div>
+                  <p class="notification-info" *ngIf="newAnnouncement.sendEmail || newAnnouncement.sendSMS">
+                    <small>
+                      <strong>Note:</strong> Notifications will be sent to all users with valid 
+                      {{newAnnouncement.sendEmail ? 'email addresses' : ''}}
+                      {{newAnnouncement.sendEmail && newAnnouncement.sendSMS ? ' and ' : ''}}
+                      {{newAnnouncement.sendSMS ? 'phone numbers' : ''}} in your society.
+                    </small>
+                  </p>
+                </div>
+                
+                <div class="form-actions">
+                  <button type="submit" class="btn-primary" [disabled]="!newAnnouncement.title || !newAnnouncement.content">
+                    📢 Create Announcement
+                  </button>
+                  <button type="button" class="btn-secondary" (click)="resetAnnouncementForm()">
+                    🔄 Reset
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- Existing Announcements List -->
+            <div class="announcements-list-container">
+              <h3>Existing Announcements</h3>
+              <div *ngIf="loadingAnnouncements" class="loading-message">
+                <p>Loading announcements...</p>
+              </div>
+              
+              <div *ngIf="!loadingAnnouncements && societyAnnouncements.length === 0" class="no-data-message">
+                <p>No announcements found. Create your first announcement above.</p>
+              </div>
+              
+              <div *ngIf="!loadingAnnouncements && societyAnnouncements.length > 0" class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Content</th>
+                      <th>Priority</th>
+                      <th>Created Date</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let announcement of societyAnnouncements">
+                      <td>{{ announcement.title }}</td>
+                      <td class="content-cell">{{ announcement.content }}</td>
+                      <td>
+                        <span class="priority-badge" [ngClass]="'priority-' + announcement.priority">
+                          {{ announcement.priority | uppercase }}
+                        </span>
+                      </td>
+                      <td>{{ announcement.createdAt | date:'short' }}</td>
+                      <td>
+                        <button 
+                          class="btn-danger btn-small" 
+                          (click)="deleteAnnouncement(announcement.id)"
+                          title="Delete Announcement">
+                          🗑️ Delete
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="dashboard-footer">
+    <div class="footer-content">
+      <p>&copy; 2026 NammaSociety-AMP. All Rights Reserved. | 
+        <a href="javascript:void(0)">Privacy Policy</a> | 
+        <a href="javascript:void(0)">Terms of Service</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Amenities Booking Modal -->
+  <div class="modal-overlay" *ngIf="showAmenitiesModal" (click)="closeAmenitiesModal()">
+    <div class="modal-container amenities-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🎾 Book Amenities</h2>
+        <button class="close-btn" (click)="closeAmenitiesModal()">✕</button>
+      </div>
+      
+      <div class="modal-body" *ngIf="!selectedAmenity">
+        <div class="amenities-grid">
+          <div class="amenity-card" *ngFor="let amenity of amenities" (click)="selectAmenity(amenity)">
+            <div class="amenity-icon">{{ amenity.icon }}</div>
+            <h3>{{ amenity.name }}</h3>
+            <p class="amenity-slot">
+              <span *ngIf="amenity.slotType === 'HOURLY' || amenity.slotType === '1_hour'">1 Hour Slot</span>
+              <span *ngIf="amenity.slotType === '2_hours'">2 Hours Slot</span>
+              <span *ngIf="amenity.slotType === 'HALF_DAY' || amenity.slotType === 'half_full_day' || amenity.slotType === 'FULL_DAY'">Half/Full Day</span>
+            </p>
+            <p class="amenity-cta">Click to view pricing & book</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-body" *ngIf="selectedAmenity">
+        <button class="back-btn" (click)="selectedAmenity = null">← Back to Amenities</button>
+        
+        <div class="booking-form">
+          <h3>Book {{ selectedAmenity.name }}</h3>
+          
+          <div class="form-group">
+            <label>Select Date</label>
+            <input type="date" class="form-control" [min]="getTodayDate()">
+          </div>
+
+          <div class="form-group" *ngIf="selectedAmenity.slotType === 'half_full_day'">
+            <label>Select Slot</label>
+            <select class="form-control" [(ngModel)]="selectedSlotType">
+              <option value="half">Half Day (₹{{ selectedAmenity.halfDayPrice }})</option>
+              <option value="full">Full Day (₹{{ selectedAmenity.fullDayPrice }})</option>
+            </select>
+          </div>
+
+          <div class="form-group" *ngIf="selectedAmenity.slotType !== 'half_full_day'">
+            <label>Select Time Slot</label>
+            <select class="form-control">
+              <option>06:00 AM - 08:00 AM</option>
+              <option>08:00 AM - 10:00 AM</option>
+              <option>10:00 AM - 12:00 PM</option>
+              <option>12:00 PM - 02:00 PM</option>
+              <option>02:00 PM - 04:00 PM</option>
+              <option>04:00 PM - 06:00 PM</option>
+              <option>06:00 PM - 08:00 PM</option>
+              <option>08:00 PM - 10:00 PM</option>
+            </select>
+          </div>
+
+          <div class="booking-summary">
+            <h4>Booking Summary</h4>
+            <p><strong>Amenity:</strong> {{ selectedAmenity.name }}</p>
+            <p *ngIf="selectedAmenity.price > 0 && selectedAmenity.slotType !== 'half_full_day'">
+              <strong>Amount:</strong> ₹{{ selectedAmenity.price }}
+            </p>
+            <p *ngIf="selectedAmenity.slotType === 'half_full_day'">
+              <strong>Amount:</strong> ₹{{ selectedSlotType === 'half' ? selectedAmenity.halfDayPrice : selectedAmenity.fullDayPrice }}
+            </p>
+            <p *ngIf="selectedAmenity.price === 0"><strong>Amount:</strong> Free</p>
+          </div>
+
+          <button class="btn-primary btn-block" (click)="bookAmenity({ amenityName: selectedAmenity.name, price: selectedAmenity.price })">
+            {{ selectedAmenity.price > 0 ? 'Proceed to Payment' : 'Confirm Booking' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real Estate Modal -->
+  <div class="modal-overlay" *ngIf="showRealEstateModal" (click)="closeRealEstateModal()">
+    <div class="modal-container real-estate-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>� NoBroker-Internal</h2>
+        <button class="close-btn" (click)="closeRealEstateModal()">✕</button>
+      </div>
+      
+      <div class="modal-description">
+        <p>Buying and Selling of Flats and Renting of flats within the community</p>
+      </div>
+
+      <div class="real-estate-tabs">
+        <button 
+          class="tab-btn" 
+          [class.active]="realEstateType === 'buysell'"
+          (click)="realEstateType = 'buysell'; filterAndDisplayProperties()">
+          Buy/Sell
+        </button>
+        <button 
+          class="tab-btn" 
+          [class.active]="realEstateType === 'rent'"
+          (click)="realEstateType = 'rent'; filterAndDisplayProperties()">
+          Rent
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Listings View -->
+        <div *ngIf="realEstateType !== 'post'">
+          <!-- Search Filters -->
+          <div class="property-search-filters">
+            <div class="filter-row">
+              <div class="filter-group">
+                <label for="tower-select">Tower Number:</label>
+                <select id="tower-select" [(ngModel)]="selectedTower" class="filter-select">
+                  <option value="">All Towers</option>
+                  <option *ngFor="let tower of availableTowersProperty" [value]="tower">Tower {{ tower }}</option>
+                </select>
+              </div>
+              
+              <div class="filter-group">
+                <label for="bhk-select">BHK Type:</label>
+                <select id="bhk-select" [(ngModel)]="selectedBHK" class="filter-select">
+                  <option value="">All BHK</option>
+                  <option value="2">2 BHK</option>
+                  <option value="3">3 BHK</option>
+                  <option value="4">4 BHK</option>
+                </select>
+              </div>
+              
+              <button class="search-btn" (click)="searchProperties()">🔍 Search</button>
+            </div>
+          </div>
+          
+          <!-- Post Property Section -->
+          <div class="post-property-section">
+            <p class="property-owner-text">Are you a Property Owner?</p>
+            <button class="post-property-btn" (click)="realEstateType = 'post'">📝 Post a Free Property Ad</button>
+          </div>
+
+          <div class="property-list">
+            <div class="property-card" *ngFor="let listing of realEstateListings | slice:0:10">
+              <div class="property-image">
+                <img [src]="listing.image || 'assets/images/default-property.jpg'" alt="Property">
+                <div class="property-badge" [class]="listing.type">{{ listing.type === 'sale' ? 'For Sale' : 'For Rent' }}</div>
+              </div>
+              <div class="property-details">
+                <h4>{{ listing.bhk }} {{ listing.type === 'sale' ? 'Apartment' : 'Available' }}</h4>
+                <p class="property-location">📍 {{ listing.location }}</p>
+                <p class="property-area">📏 {{ listing.area }} sq.ft</p>
+                <div class="property-amenities">
+                  <span *ngFor="let amenity of listing.amenities" class="amenity-tag">{{ amenity }}</span>
+                </div>
+                <div class="property-footer">
+                  <div class="property-price">₹{{ listing.price | number }}</div>
+                  <button class="contact-btn">Contact Owner</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="no-listings" *ngIf="realEstateListings.length === 0">
+              <p>No properties available at the moment.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Post Property Form -->
+        <div *ngIf="realEstateType === 'post'" class="sell-property-form">
+          <h3>Post a Free Property Ad</h3>
+          <p class="form-subtitle">List properties within or outside your society</p>
+          
+          <!-- Success Message -->
+          <div *ngIf="propertySubmitMessage" class="alert alert-success">
+            {{ propertySubmitMessage }}
+          </div>
+          
+          <form (ngSubmit)="submitProperty()" #propertyForm="ngForm">
+            <div class="form-group">
+              <label>Property Location Type <span class="required">*</span></label>
+              <select class="form-control" [(ngModel)]="propertyFormData.locationType" name="locationType" required>
+                <option value="internal">Inside Society (Internal)</option>
+                <option value="external">Outside Society (External)</option>
+              </select>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Listing Type <span class="required">*</span></label>
+                <select class="form-control" [(ngModel)]="propertyFormData.listingType" name="listingType" required>
+                  <option value="sale">For Sale</option>
+                  <option value="rent">For Rent</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Property Type <span class="required">*</span></label>
+                <select class="form-control" [(ngModel)]="propertyFormData.propertyType" name="propertyType" required>
+                  <option value="Apartment">Apartment</option>
+                  <option value="Villa">Villa</option>
+                  <option value="Penthouse">Penthouse</option>
+                  <option value="Independent House">Independent House</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>BHK <span class="required">*</span></label>
+                <select class="form-control" [(ngModel)]="propertyFormData.bhk" name="bhk" required>
+                  <option value="1">1 BHK</option>
+                  <option value="2">2 BHK</option>
+                  <option value="3">3 BHK</option>
+                  <option value="4">4 BHK</option>
+                  <option value="5">5+ BHK</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Area (sq.ft) <span class="required">*</span></label>
+                <input type="number" class="form-control" [(ngModel)]="propertyFormData.area" 
+                       name="area" placeholder="e.g., 1200" required min="100">
+              </div>
+              <div class="form-group">
+                <label>Expected Price (₹) <span class="required">*</span></label>
+                <input type="number" class="form-control" [(ngModel)]="propertyFormData.price" 
+                       name="price" placeholder="e.g., 5000000" required min="0">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Location <span class="required">*</span></label>
+              <input type="text" class="form-control" [(ngModel)]="propertyFormData.location" 
+                     name="location" placeholder="Tower, Floor, Flat Number" required>
+            </div>
+
+            <div class="form-group">
+              <label>Description <span class="required">*</span></label>
+              <textarea class="form-control" rows="4" [(ngModel)]="propertyFormData.description" 
+                        name="description" placeholder="Describe your property..." required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Amenities (Select all that apply)</label>
+              <div class="checkbox-group">
+                <label><input type="checkbox" [(ngModel)]="propertyFormData.amenities.parking" name="parking"> Parking</label>
+                <label><input type="checkbox" [(ngModel)]="propertyFormData.amenities.balcony" name="balcony"> Balcony</label>
+                <label><input type="checkbox" [(ngModel)]="propertyFormData.amenities.gym" name="gym"> Gym Access</label>
+                <label><input type="checkbox" [(ngModel)]="propertyFormData.amenities.pool" name="pool"> Pool Access</label>
+                <label><input type="checkbox" [(ngModel)]="propertyFormData.amenities.kitchen" name="kitchen"> Modular Kitchen</label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Upload Photos</label>
+              <input type="file" class="form-control" multiple accept="image/*" name="photos">
+              <small class="form-text">You can upload photos after posting (coming soon)</small>
+            </div>
+
+            <button type="submit" class="btn-primary btn-block" [disabled]="isSubmittingProperty || !propertyForm.valid">
+              <span *ngIf="!isSubmittingProperty">Submit Listing</span>
+              <span *ngIf="isSubmittingProperty">Submitting...</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- File Complaint Modal -->
+  <div class="modal-overlay" *ngIf="showComplaintModal" (click)="closeComplaintModal()">
+    <div class="modal-container complaint-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📝 File a New Complaint</h2>
+        <button class="close-btn" (click)="closeComplaintModal()">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <form class="complaint-form">
+          <div class="form-group">
+            <label for="complaintTitle">Complaint Title <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="complaintTitle"
+              class="form-control" 
+              [(ngModel)]="complaintFormData.title"
+              name="complaintTitle"
+              placeholder="Brief title for your complaint"
+              maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label for="complaintCategory">Category <span class="required">*</span></label>
+            <select 
+              id="complaintCategory"
+              class="form-control" 
+              [(ngModel)]="complaintFormData.category"
+              name="complaintCategory">
+              <option value="">Select a category</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Water Supply">Water Supply</option>
+              <option value="Electricity">Electricity</option>
+              <option value="Elevator">Elevator</option>
+              <option value="Security">Security</option>
+              <option value="Parking">Parking</option>
+              <option value="Garbage">Garbage Collection</option>
+              <option value="Noise">Noise Complaint</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="complaintDescription">Description <span class="required">*</span></label>
+            <textarea 
+              id="complaintDescription"
+              class="form-control" 
+              [(ngModel)]="complaintFormData.description"
+              name="complaintDescription"
+              placeholder="Describe your complaint in detail..."
+              rows="6"
+              maxlength="1000"></textarea>
+            <small class="char-count">{{ complaintFormData.description?.length || 0 }}/1000 characters</small>
+          </div>
+
+          <div class="form-group">
+            <label for="complaintAttachment">Attachment (Optional)</label>
+            <input 
+              type="file" 
+              id="complaintAttachment"
+              class="form-control file-input" 
+              (change)="onComplaintFileSelected($event)"
+              accept="image/*,application/pdf,.doc,.docx">
+            <small class="file-hint">Max file size: 1 MB. Supported formats: Images, PDF, DOC</small>
+            <div class="file-preview" *ngIf="complaintFile">
+              <span class="file-icon">📎</span>
+              <span class="file-name">{{ complaintFile.name }}</span>
+              <span class="file-size">({{ (complaintFile.size / 1024).toFixed(1) }} KB)</span>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" (click)="closeComplaintModal()" [disabled]="isSubmittingComplaint">Cancel</button>
+            <button type="button" class="btn-primary" (click)="submitComplaint()" [disabled]="isSubmittingComplaint">
+              <span *ngIf="!isSubmittingComplaint">Submit Complaint</span>
+              <span *ngIf="isSubmittingComplaint">Submitting...</span>
+            </button>
+          </div>
+
+          <div class="submit-message success" *ngIf="complaintSubmitMessage && !complaintSubmitMessage.includes('Error')">
+            ✓ {{ complaintSubmitMessage }}
+          </div>
+          <div class="submit-message error" *ngIf="complaintSubmitMessage && complaintSubmitMessage.includes('Error')">
+            ✗ {{ complaintSubmitMessage }}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Community Post Modal -->
+  <div class="modal-overlay" *ngIf="showCommunityPostModal" (click)="closeCommunityPostModal()">
+    <div class="modal-container post-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>✍️ Create a Community Post</h2>
+        <button class="close-btn" (click)="closeCommunityPostModal()">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <form class="post-form">
+          <div class="form-group">
+            <label for="postTitle">Post Title <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="postTitle"
+              class="form-control" 
+              [(ngModel)]="postFormData.title"
+              name="postTitle"
+              placeholder="What's your post about?"
+              maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label for="postCategory">Category <span class="required">*</span></label>
+            <select 
+              id="postCategory"
+              class="form-control" 
+              [(ngModel)]="postFormData.category"
+              name="postCategory">
+              <option value="">Select a category</option>
+              <option value="Announcement">📢 Announcement (for Society Admins)</option>
+              <option value="General">General Discussion</option>
+              <option value="Events">Community Events</option>
+              <option value="Sports">Sports & Fitness</option>
+              <option value="Buy/Sell">Buy/Sell/Exchange</option>
+              <option value="Lost & Found">Lost & Found</option>
+              <option value="Recommendations">Recommendations</option>
+              <option value="Help Needed">Help Needed</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <!-- Notification Options (only for Announcements) -->
+          <div class="form-group notification-options" *ngIf="postFormData.category === 'Announcement'">
+            <label class="notification-label">📨 Send Notifications To Society Members</label>
+            <div class="notification-checkboxes">
+              <div class="checkbox-item">
+                <input 
+                  type="checkbox" 
+                  id="sendEmail" 
+                  [(ngModel)]="postFormData.sendEmail"
+                  name="sendEmail">
+                <label for="sendEmail">
+                  <span class="checkbox-icon">📧</span>
+                  <span class="checkbox-text">Send Email Notification</span>
+                </label>
+              </div>
+              <div class="checkbox-item">
+                <input 
+                  type="checkbox" 
+                  id="sendSMS" 
+                  [(ngModel)]="postFormData.sendSMS"
+                  name="sendSMS">
+                <label for="sendSMS">
+                  <span class="checkbox-icon">📱</span>
+                  <span class="checkbox-text">Send SMS Notification</span>
+                </label>
+              </div>
+            </div>
+            <small class="notification-hint">
+              ℹ️ Selected notifications will be sent to all members of your society
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="postContent">Content <span class="required">*</span></label>
+            <textarea 
+              id="postContent"
+              class="form-control" 
+              [(ngModel)]="postFormData.content"
+              name="postContent"
+              placeholder="Share your thoughts with the community..."
+              rows="6"
+              maxlength="1000"></textarea>
+            <small class="char-count">{{ postFormData.content?.length || 0 }}/1000 characters</small>
+          </div>
+
+          <div class="form-group">
+            <label for="postAttachment">Attachment (Optional)</label>
+            <input 
+              type="file" 
+              id="postAttachment"
+              class="form-control file-input" 
+              (change)="onPostFileSelected($event)"
+              accept="image/*,application/pdf,.doc,.docx">
+            <small class="file-hint">Max file size: 1 MB. Supported formats: Images, PDF, DOC</small>
+            <div class="file-preview" *ngIf="postFile">
+              <span class="file-icon">📎</span>
+              <span class="file-name">{{ postFile.name }}</span>
+              <span class="file-size">({{ (postFile.size / 1024).toFixed(1) }} KB)</span>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" (click)="closeCommunityPostModal()" [disabled]="isSubmittingPost">Cancel</button>
+            <button type="button" class="btn-primary" (click)="submitCommunityPost()" [disabled]="isSubmittingPost">
+              <span *ngIf="!isSubmittingPost">Create Post</span>
+              <span *ngIf="isSubmittingPost">Posting...</span>
+            </button>
+          </div>
+
+          <div class="submit-message success" *ngIf="postSubmitMessage && !postSubmitMessage.includes('Error')">
+            ✓ {{ postSubmitMessage }}
+          </div>
+          <div class="submit-message error" *ngIf="postSubmitMessage && postSubmitMessage.includes('Error')">
+            ✗ {{ postSubmitMessage }}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Directory Modal (Normal Society Users Only) -->
+  <div class="modal-overlay" *ngIf="showUserDirectory && !isAdminUser()" (click)="closeUserDirectory()">
+    <div class="modal-container user-directory-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>👥 {{ user?.societyName }} - User Directory</h2>
+        <button class="close-btn" (click)="closeUserDirectory()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Filters Section -->
+        <div class="directory-filters">
+          <div class="filter-group">
+            <label>🔍 Search:</label>
+            <input 
+              type="text" 
+              class="filter-input" 
+              placeholder="Search by name, tower, flat..." 
+              [(ngModel)]="userDirectorySearchQuery"
+              (keyup)="searchUserDirectory()">
+          </div>
+
+          <div class="filter-group">
+            <label>🏢 Filter by Tower:</label>
+            <select 
+              class="filter-select" 
+              [(ngModel)]="selectedDirectoryTower"
+              (change)="filterByTower()">
+              <option value="">All Towers</option>
+              <option *ngFor="let tower of userDirectoryTowers" [value]="tower">
+                Tower {{ tower }}
+              </option>
+            </select>
+          </div>
+
+          <button class="clear-filters-btn" (click)="clearDirectoryFilters()" *ngIf="selectedDirectoryTower || userDirectorySearchQuery">
+            Clear Filters
+          </button>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-state" *ngIf="isLoadingDirectory">
+          <div class="spinner"></div>
+          <p>Loading users...</p>
+        </div>
+
+        <!-- Users Table -->
+        <div class="directory-content" *ngIf="!isLoadingDirectory">
+          <div class="directory-stats">
+            <p>Showing <strong>{{ filteredSocietyUsers.length }}</strong> of <strong>{{ societyUsers.length }}</strong> users</p>
+          </div>
+
+          <div class="users-table-wrapper">
+            <table class="directory-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Tower</th>
+                  <th>Flat</th>
+                  <th>User Type</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let user of filteredSocietyUsers" class="user-row">
+                  <td class="user-name-cell">
+                    <div class="user-avatar" [style.background-color]="getRandomColor()">
+                      {{ getInitials(user.displayName) }}
+                    </div>
+                    <span>{{ user.displayName }}</span>
+                  </td>
+                  <td class="tower-cell">{{ user.displayTower }}</td>
+                  <td class="flat-cell">{{ user.displayFlat }}</td>
+                  <td class="user-type-cell">{{ user.displayUserType }}</td>
+                  <td class="email-cell">{{ user.displayEmail }}</td>
+                  <td class="phone-cell">{{ user.displayPhone }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="no-users-message" *ngIf="filteredSocietyUsers.length === 0 && !isLoadingDirectory">
+              <p>No users found matching your filters.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complaint Detail & Response Modal (Society Admin) -->
+  <div class="modal-overlay" *ngIf="showComplaintDetail" (click)="closeComplaintDetail()">
+    <div class="modal-container complaint-detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🔍 Complaint Details & Responses</h2>
+        <button class="close-btn" (click)="closeComplaintDetail()">✕</button>
+      </div>
+
+      <div class="modal-body" *ngIf="selectedComplaint">
+        <!-- Complaint Information -->
+        <div class="complaint-detail-section">
+          <div class="detail-header">
+            <h3>{{ selectedComplaint.title }}</h3>
+            <div class="complaint-status-badge" [ngClass]="(selectedComplaint.status || 'OPEN').toLowerCase().replace('_', '-')">
+              {{ selectedComplaint.status || 'OPEN' }}
+            </div>
+          </div>
+
+          <div class="detail-info">
+            <p><strong>Category:</strong> {{ selectedComplaint.category || 'General' }}</p>
+            <p><strong>Filed by:</strong> {{ selectedComplaint.reporterName || 'Unknown' }}</p>
+            <p><strong>Date:</strong> {{ selectedComplaint.createdAt ? (selectedComplaint.createdAt | date: 'MMM d, y • h:mm a') : 'Unknown' }}</p>
+            <p *ngIf="selectedComplaint.assignedTo"><strong>Assigned to:</strong> {{ selectedComplaint.assignedTo }}</p>
+          </div>
+
+          <div class="detail-description">
+            <h4>Description:</h4>
+            <p>{{ selectedComplaint.description || 'No description provided.' }}</p>
+          </div>
+
+          <!-- Status Update (Society Admin only) -->
+          <div class="status-update-section" *ngIf="isSocietyAdmin()">
+            <label for="complaint-status"><strong>Update Status:</strong></label>
+            <select 
+              id="complaint-status" 
+              [(ngModel)]="selectedComplaint.status" 
+              (change)="updateComplaintStatus(selectedComplaint.status)"
+              [disabled]="updatingComplaintStatus"
+              class="status-select">
+              <option value="OPEN">Open</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="RESOLVED">Resolved</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Comments/Responses Section -->
+        <div class="responses-section">
+          <h3>💬 Responses ({{ complaintComments.length }})</h3>
+
+          <!-- Loading State -->
+          <div class="loading-state" *ngIf="isLoadingComments">
+            <div class="spinner"></div>
+            <p>Loading responses...</p>
+          </div>
+
+          <!-- Comments List -->
+          <div class="comments-list" *ngIf="!isLoadingComments && complaintComments.length > 0">
+            <div class="comment-item" *ngFor="let comment of complaintComments">
+              <div class="comment-header">
+                <div class="comment-author-icon" [style.background]="getRandomColor()">
+                  {{ getInitials(comment.authorName) }}
+                </div>
+                <div class="comment-info">
+                  <strong>{{ comment.authorName }}</strong>
+                  <span class="author-role" [ngClass]="comment.authorRole?.toLowerCase()">
+                    {{ comment.authorRole || 'User' }}
+                  </span>
+                  <span class="comment-time">
+                    {{ comment.createdAt ? (comment.createdAt | date: 'MMM d, y • h:mm a') : '' }}
+                  </span>
+                </div>
+                <span class="resolution-badge" *ngIf="comment.isResolution">
+                  ✓ Resolution
+                </span>
+              </div>
+              <div class="comment-text">{{ comment.commentText }}</div>
+            </div>
+          </div>
+
+          <!-- No Comments -->
+          <div class="no-comments" *ngIf="!isLoadingComments && complaintComments.length === 0">
+            <p>No responses yet. Be the first to respond!</p>
+          </div>
+
+          <!-- Add Response Form (Society Admin only) -->
+          <div class="add-response-form" *ngIf="isSocietyAdmin()">
+            <h4>Add Your Response</h4>
+            
+            <div class="success-message" *ngIf="responseSubmitMessage && !responseSubmitMessage.includes('Failed')">
+              ✓ {{ responseSubmitMessage }}
+            </div>
+            <div class="error-message" *ngIf="responseSubmitMessage && responseSubmitMessage.includes('Failed')">
+              ✗ {{ responseSubmitMessage }}
+            </div>
+
+            <form (ngSubmit)="submitComplaintResponse()">
+              <div class="form-group">
+                <textarea 
+                  [(ngModel)]="newComplaintResponse.commentText" 
+                  name="responseText"
+                  class="response-textarea" 
+                  placeholder="Type your response here..."
+                  rows="4"
+                  required></textarea>
+              </div>
+
+              <div class="form-group checkbox-group">
+                <label>
+                  <input 
+                    type="checkbox" 
+                    [(ngModel)]="newComplaintResponse.isResolution" 
+                    name="isResolution">
+                  Mark this as a resolution (will update complaint status to RESOLVED)
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-primary" [disabled]="isSubmittingResponse">
+                  {{ isSubmittingResponse ? 'Posting...' : 'Post Response' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Announcement Notifications Panel (for Normal Users) -->
+  <div class="notifications-panel" *ngIf="showAnnouncementNotifications" [class.show]="showAnnouncementNotifications">
+    <div class="panel-header">
+      <h3>📢 Recent Announcements</h3>
+      <button class="close-panel-btn" (click)="closeAnnouncementNotifications()">✕</button>
+    </div>
+
+    <div class="panel-body">
+      <div class="announcement-notification" 
+           *ngFor="let announcement of recentAnnouncements" 
+           (click)="markAnnouncementAsRead(announcement)">
+        <div class="notification-priority" [ngClass]="(announcement.priority || 'medium').toLowerCase()">
+          {{ announcement.priority || 'Medium' }}
+        </div>
+        <div class="notification-content">
+          <h4>{{ announcement.title }}</h4>
+          <p>{{ announcement.content }}</p>
+          <small>{{ announcement.createdAt ? (announcement.createdAt | date: 'MMM d, y • h:mm a') : 'Recent' }}</small>
+        </div>
+      </div>
+
+      <div class="no-notifications" *ngIf="recentAnnouncements.length === 0">
+        <p>No recent announcements</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Guest Management Modal -->
+<div class="modal-overlay" *ngIf="showGuestManagementModal" (click)="closeGuestManagementModal()">
+  <div class="modal-container guest-management-modal" (click)="$event.stopPropagation()">
+    <button class="modal-close-btn" (click)="closeGuestManagementModal()">✕</button>
+    
+    <div class="modal-header">
+      <h2>🚪 Guest & Visitor Management</h2>
+      <p class="modal-subtitle">Manage pre-approvals, approve visitors, and track entries</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+      <button class="tab-btn" 
+              [class.active]="guestManagementTab === 'pre-approval'"
+              (click)="selectGuestManagementTab('pre-approval')">
+        📅 Pre-Approvals {{ preApprovals.length > 0 ? '(' + preApprovals.length + ')' : '' }}
+      </button>
+      <button class="tab-btn" 
+              [class.active]="guestManagementTab === 'pending-requests'"
+              (click)="selectGuestManagementTab('pending-requests')">
+        🔔 Pending Requests
+        <span class="badge-count" *ngIf="unreadApprovalsCount > 0">{{ unreadApprovalsCount }}</span>
+      </button>
+      <button class="tab-btn" 
+              *ngIf="isSecurityGuard() || isSocietyAdmin()"
+              [class.active]="guestManagementTab === 'approval-logs'"
+              (click)="selectGuestManagementTab('approval-logs')">
+        📊 Approval Logs {{ approvalLogs.length > 0 ? '(' + approvalLogs.length + ')' : '' }}
+      </button>
+    </div>
+
+    <div class="modal-body">
+      
+      <!-- TAB 1: Pre-Approvals -->
+      <div class="tab-content" *ngIf="guestManagementTab === 'pre-approval'">
+        <div class="tab-section">
+          <h3>Create Pre-Approval</h3>
+          <p class="section-description">Pre-approve guests, delivery persons, or vendors for future visits</p>
+          
+          <form class="pre-approval-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Visitor Type *</label>
+                <select [(ngModel)]="newPreApproval.visitorType" name="visitorType" required>
+                  <option value="GUEST">Guest</option>
+                  <option value="CAB">Cab/Taxi</option>
+                  <option value="DELIVERY">Delivery</option>
+                  <option value="VISITING_HELP">Visiting Help (Maid/Cook)</option>
+                  <option value="VENDOR">Vendor</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Visitor Name *</label>
+                <input type="text" [(ngModel)]="newPreApproval.visitorName" name="visitorName" 
+                       placeholder="Enter visitor name" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Phone Number</label>
+                <input type="tel" [(ngModel)]="newPreApproval.visitorPhone" name="visitorPhone" 
+                       placeholder="+919876543210">
+              </div>
+              <div class="form-group">
+                <label>Valid From *</label>
+                <input type="datetime-local" [(ngModel)]="newPreApproval.validFrom" name="validFrom" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Valid Until *</label>
+                <input type="datetime-local" [(ngModel)]="newPreApproval.validUntil" name="validUntil" required>
+              </div>
+              <div class="form-group">
+                <label>Description</label>
+                <input type="text" [(ngModel)]="newPreApproval.description" name="description" 
+                       placeholder="Purpose of visit (optional)">
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-primary" (click)="submitPreApproval()" 
+                      [disabled]="isSubmittingPreApproval">
+                {{ isSubmittingPreApproval ? 'Creating...' : '✅ Create Pre-Approval' }}
+              </button>
+            </div>
+
+            <div class="submit-message success" *ngIf="preApprovalSubmitMessage">
+              {{ preApprovalSubmitMessage }}
+            </div>
+          </form>
+        </div>
+
+        <!-- Existing Pre-Approvals List -->
+        <div class="tab-section">
+          <h3>Active Pre-Approvals</h3>
+          <div class="pre-approvals-list">
+            <div class="no-data" *ngIf="preApprovals.length === 0">
+              <p>No active pre-approvals. Create one above to pre-approve future visitors.</p>
+            </div>
+            
+            <div class="approval-card" *ngFor="let approval of preApprovals">
+              <div class="approval-header">
+                <span class="visitor-type-badge" [class]="approval.visitorType ? approval.visitorType.toLowerCase() : ''">
+                  {{ approval.visitorType }}
+                </span>
+                <span class="status-badge" [class]="approval.status?.toLowerCase()">
+                  {{ approval.status }}
+                </span>
+              </div>
+              <h4>{{ approval.visitorName }}</h4>
+              <div class="approval-details">
+                <p><strong>Phone:</strong> {{ approval.visitorPhone || 'Not provided' }}</p>
+                <p><strong>Valid:</strong> {{ approval.validFrom | date: 'MMM d, h:mm a' }} - 
+                   {{ approval.validUntil | date: 'MMM d, h:mm a' }}</p>
+                <p *ngIf="approval.description"><strong>Purpose:</strong> {{ approval.description }}</p>
+                <p class="created-info">Created by {{ approval.createdBy }} on 
+                   {{ approval.createdAt | date: 'MMM d, y' }}</p>
+              </div>
+              <div class="approval-actions">
+                <button class="btn-danger-sm" (click)="revokePreApproval(approval.id!)">
+                  ❌ Revoke
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Pending Approval Requests -->
+      <div class="tab-content" *ngIf="guestManagementTab === 'pending-requests'">
+        <div class="tab-section">
+          <h3>Pending Approval Requests</h3>
+          <p class="section-description">Security has requested approval for the following visitors</p>
+          
+          <div class="approval-requests-list">
+            <div class="no-data" *ngIf="pendingApprovalRequests.length === 0">
+              <p>✅ No pending approval requests. All visitors have been processed.</p>
+            </div>
+
+            <div class="request-card pending" *ngFor="let request of pendingApprovalRequests">
+              <div class="request-header">
+                <span class="visitor-type-badge" [class]="request.visitorType ? request.visitorType.toLowerCase() : ''">
+                  {{ request.visitorType || '-' }}
+                </span>
+                <span class="time-badge">
+                  {{ request.requestedAt ? (request.requestedAt | date: 'h:mm a') : '-' }}
+                </span>
+              </div>
+              <h4>{{ request.visitorName }}</h4>
+              <div class="request-details">
+                <p><strong>Apartment:</strong> {{ request.apartmentNumber }}</p>
+                <p><strong>Phone:</strong> {{ request.visitorPhone || 'Not provided' }}</p>
+                <p *ngIf="request.visitorIdProof"><strong>ID Proof:</strong> {{ request.visitorIdProof }}</p>
+                <p *ngIf="request.purpose"><strong>Purpose:</strong> {{ request.purpose }}</p>
+                <p class="requested-by">Requested by: {{ request.requestedBy }}</p>
+              </div>
+              <div class="request-actions">
+                <button class="btn-success" (click)="approveApprovalRequest(request.id!)">
+                  ✅ Approve Entry
+                </button>
+                <button class="btn-danger" (click)="rejectApprovalRequest(request.id!)">
+                  ❌ Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Approval Logs (Security Dashboard) -->
+      <div class="tab-content" *ngIf="guestManagementTab === 'approval-logs' && (isSecurityGuard() || isSocietyAdmin())">
+        
+        <!-- Security: Create New Approval Request -->
+        <div class="tab-section">
+          <h3>Request Visitor Approval</h3>
+          <p class="section-description">Create an approval request for a visitor at the gate</p>
+
+          <div class="scanner-code-panel">
+            <h4>Society Scanner Code</h4>
+            <p class="section-description" *ngIf="isSocietyAdmin()">
+              Step 1: Click <strong>Generate / Refresh Scanner Code</strong>. Step 2: Share or print the QR code.
+              Security login will automatically show the same code.
+            </p>
+            <div class="form-row" *ngIf="isSocietyAdmin()">
+              <div class="form-group">
+                <label>Public Visitor Entry Base URL</label>
+                <input type="text" [(ngModel)]="visitorEntryPublicBaseUrl" name="visitorEntryPublicBaseUrl"
+                       placeholder="https://your-domain/dashboard-mfe/visitor-entry">
+                <button type="button" class="btn-secondary" (click)="saveVisitorEntryPublicBaseUrl()">Save Public URL</button>
+                <button type="button" class="btn-secondary" (click)="useCurrentLanIpForVisitorBaseUrl()">Use My Current LAN IP</button>
+                <p class="section-description">Use your LAN/public URL here. Avoid localhost for QR scanning from phones.</p>
+              </div>
+            </div>
+            <p class="section-description" *ngIf="!currentSocietyScannerCode">
+              QR code is not generated yet for this society.
+            </p>
+            <p *ngIf="currentSocietyScannerCode"><strong>Current Code:</strong> {{ currentSocietyScannerCode }}</p>
+            <p *ngIf="scannerCodeUpdatedAt"><strong>Updated:</strong> {{ scannerCodeUpdatedAt | date:'MMM d, h:mm a' }}</p>
+            <div class="scanner-qr-block" *ngIf="getVisitorEntryQrImageUrl()">
+              <img [src]="getVisitorEntryQrImageUrl()" alt="Visitor self-entry QR">
+              <div class="scanner-qr-meta">
+                <p><strong>Visitor Self-Entry Link:</strong></p>
+                <p class="qr-link">{{ currentVisitorEntryUrl || buildVisitorEntryUrl() }}</p>
+                <button type="button" class="btn-secondary" (click)="copyVisitorEntryLink()">Copy Link</button>
+                <button type="button" class="btn-secondary" (click)="printVisitorEntryQr()">Print QR</button>
+              </div>
+            </div>
+            <button *ngIf="isSocietyAdmin()" type="button" class="btn-secondary" (click)="generateSocietyScannerCode()">
+              Generate / Refresh Scanner Code
+            </button>
+            <button type="button" class="btn-secondary" (click)="refreshSocietyScannerCode()">
+              Refresh Code
+            </button>
+          </div>
+          
+          <form class="approval-request-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Society Name *</label>
+                <select [(ngModel)]="newApprovalRequest.societyName" name="societyName" required>
+                  <option *ngFor="let society of availableSocietiesForSecurity" [value]="society">{{ society }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Tower *</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.tower" name="tower" 
+                       placeholder="Tower number" required>
+              </div>
+              <div class="form-group">
+                <label>Apartment Number *</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.apartmentNumber" name="apartmentNumber" 
+                       placeholder="Flat/Apartment number" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Visitor Type *</label>
+                <select [(ngModel)]="newApprovalRequest.visitorType" name="visitorType" required>
+                  <option value="GUEST">Guest</option>
+                  <option value="CAB">Cab/Taxi</option>
+                  <option value="DELIVERY">Delivery</option>
+                  <option value="VISITING_HELP">Visiting Help</option>
+                  <option value="VENDOR">Vendor</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Service Sub-Category</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.serviceSubCategory" name="serviceSubCategory"
+                       placeholder="e.g., Uber, Swiggy, Friend, Technician">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Visitor Name *</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.visitorName" name="visitorName" 
+                       placeholder="Enter visitor name" required>
+              </div>
+              <div class="form-group">
+                <label>Visitor Aadhaar</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.visitorAadhaar" name="visitorAadhaar"
+                       placeholder="12 digit Aadhaar (optional)">
+              </div>
+            </div>
+
+            <div class="form-row" *ngIf="isSecurityGuard()">
+              <div class="form-group">
+                <button type="button" class="btn-secondary" (click)="showAdvancedScannerPayload = !showAdvancedScannerPayload">
+                  {{ showAdvancedScannerPayload ? 'Hide Advanced Scanner Payload' : 'Show Advanced Scanner Payload' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="form-row" *ngIf="isSecurityGuard() && showAdvancedScannerPayload">
+              <div class="form-group">
+                <label>Scanned Payload (JSON)</label>
+                <textarea [(ngModel)]="newApprovalRequest.scannerPayload" name="scannerPayload" rows="3"
+                          placeholder='Paste scanned payload JSON from society scanner'></textarea>
+              </div>
+              <div class="form-group">
+                <label>Scanner Code</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.scannerCode" name="scannerCode"
+                       placeholder="SCN-...">
+                <button type="button" class="btn-secondary" (click)="applyScannedEntryPayload()">Apply Payload</button>
+              </div>
+            </div>
+
+            <!-- Delivery Service Fields (shown only for DELIVERY type) -->
+            <div class="form-row" *ngIf="newApprovalRequest.visitorType === 'DELIVERY'">
+              <div class="form-group">
+                <label>Delivery Service *</label>
+                <select [(ngModel)]="newApprovalRequest.deliveryService" name="deliveryService">
+                  <option value="">-- Select Service --</option>
+                  <option value="Zomato">Zomato</option>
+                  <option value="Zepto">Zepto</option>
+                  <option value="Swiggy">Swiggy</option>
+                  <option value="Dunzo">Dunzo</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="Flipkart">Flipkart</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-group" *ngIf="newApprovalRequest.deliveryService === 'Other'">
+                <label>Specify Delivery Service *</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.deliveryServiceOther" name="deliveryServiceOther" 
+                       placeholder="Enter delivery service name">
+              </div>
+            </div>
+
+            <!-- Cab Service Fields (shown only for CAB type) -->
+            <div class="form-row" *ngIf="newApprovalRequest.visitorType === 'CAB'">
+              <div class="form-group">
+                <label>Cab Service *</label>
+                <select [(ngModel)]="newApprovalRequest.cabService" name="cabService">
+                  <option value="">-- Select Service --</option>
+                  <option value="Ola">Ola</option>
+                  <option value="Uber">Uber</option>
+                  <option value="Rapido">Rapido</option>
+                  <option value="BluSmart">BluSmart</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-group" *ngIf="newApprovalRequest.cabService === 'Other'">
+                <label>Specify Cab Service *</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.cabServiceOther" name="cabServiceOther" 
+                       placeholder="Enter cab service name">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Visitor Phone</label>
+                <input type="tel" [(ngModel)]="newApprovalRequest.visitorPhone" name="visitorPhone" 
+                       placeholder="+919876543210">
+              </div>
+              <div class="form-group">
+                <label>Resident Phone (for SMS) *</label>
+                <input type="tel" [(ngModel)]="newApprovalRequest.residentPhone" name="residentPhone" 
+                       placeholder="+919876543210" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Owner Name</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.ownerName" name="ownerName"
+                       placeholder="Flat owner/resident name">
+              </div>
+              <div class="form-group">
+                <label>Owner Phone</label>
+                <input type="tel" [(ngModel)]="newApprovalRequest.ownerPhone" name="ownerPhone"
+                       placeholder="Owner phone (fallback for SMS)">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>ID Proof Details</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.visitorIdProof" name="visitorIdProof" 
+                       placeholder="Aadhaar/DL/ID number">
+              </div>
+              <div class="form-group">
+                <label>Purpose</label>
+                <input type="text" [(ngModel)]="newApprovalRequest.purpose" name="purpose" 
+                       placeholder="Purpose of visit">
+              </div>
+              <div class="form-group">
+                <label>Visitor Photo</label>
+                <div class="camera-capture-actions">
+                  <button type="button" class="btn-secondary" *ngIf="isApprovalCameraSupported && !isApprovalCameraOpen" (click)="openApprovalCamera(true)">Take Photo</button>
+                  <button type="button" class="btn-secondary" *ngIf="isApprovalCameraSupported && !isApprovalCameraOpen" (click)="openApprovalCamera(false)">Use External Camera</button>
+                  <button type="button" class="btn-secondary" *ngIf="isApprovalCameraOpen" (click)="captureApprovalCameraPhoto()">Capture</button>
+                  <button type="button" class="btn-secondary" *ngIf="isApprovalCameraOpen" (click)="stopApprovalCamera()">Close Camera</button>
+                  <button type="button" class="btn-secondary" *ngIf="canShowFaceCaptureImage(newApprovalRequest.faceCapture)" (click)="clearApprovalCapturedPhoto()">Remove Photo</button>
+                </div>
+                <div class="camera-capture-preview" *ngIf="isApprovalCameraOpen">
+                  <video id="approvalCameraVideo" autoplay playsinline muted></video>
+                </div>
+                <p class="camera-capture-error" *ngIf="approvalCameraError">{{ approvalCameraError }}</p>
+                <input type="file" accept="image/*" capture="user" (change)="onApprovalFaceCaptureSelected($event)">
+                <img *ngIf="canShowFaceCaptureImage(newApprovalRequest.faceCapture)" class="visitor-photo-preview"
+                     [src]="newApprovalRequest.faceCapture" alt="Visitor photo preview">
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-primary" (click)="submitApprovalRequest()" 
+                      [disabled]="isSubmittingApprovalRequest">
+                {{ isSubmittingApprovalRequest ? 'Sending...' : '📱 Request Approval (SMS)' }}
+              </button>
+            </div>
+
+            <div class="submit-message success" *ngIf="approvalRequestSubmitMessage">
+              {{ approvalRequestSubmitMessage }}
+            </div>
+          </form>
+        </div>
+
+        <!-- Approval Requests Tracking -->
+        <div class="tab-section">
+          <h3>Approval Requests History</h3>
+          <p class="section-description">All visitor approval requests created by security guards</p>
+          
+          <div class="search-bar">
+            <input type="text" [(ngModel)]="approvalRequestSearchQuery" 
+                   (input)="filterApprovalRequests()"
+                   placeholder="Search by visitor name, apartment, status...">
+          </div>
+          
+          <div class="approval-logs-table">
+            <div class="no-data" *ngIf="filteredApprovalRequests.length === 0">
+              <p>No approval requests found.</p>
+            </div>
+            
+            <table *ngIf="filteredApprovalRequests.length > 0">
+              <thead>
+                <tr>
+                  <th>Requested</th>
+                  <th>Photo</th>
+                  <th>Visitor</th>
+                  <th>Type</th>
+                  <th>Apartment</th>
+                  <th>Phone</th>
+                  <th>Requested By</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let req of filteredApprovalRequests">
+                  <td>{{ req.requestedAt ? (req.requestedAt | date: 'MMM d, h:mm a') : '-' }}</td>
+                  <td>
+                    <img *ngIf="canShowFaceCaptureImage(req.faceCapture)" class="visitor-photo-thumb"
+                         [src]="req.faceCapture" alt="Visitor">
+                    <span *ngIf="!canShowFaceCaptureImage(req.faceCapture)">-</span>
+                  </td>
+                  <td>
+                    {{ req.visitorName }}
+                    <div class="subtext" *ngIf="req.serviceSubCategory">{{ req.serviceSubCategory }}</div>
+                  </td>
+                   <td><span class="type-badge" [class]="req.visitorType ? req.visitorType.toLowerCase() : ''">
+                    {{ req.visitorType || '-' }}</span></td>
+                  <td>{{ req.apartmentNumber }}</td>
+                  <td>{{ req.visitorPhone || '-' }}</td>
+                  <td>{{ req.requestedBy }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="getRequestStatusClass(req.status)">
+                      {{ req.status || 'PENDING' }}
+                    </span>
+                    <div class="subtext" *ngIf="req.scannerSource">{{ req.scannerSource }}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Active Visitors -->
+        <div class="tab-section">
+          <h3>Currently Inside Society</h3>
+
+          <div class="exit-assist-panel">
+            <h4>Fast Exit Verification (QR / Camera)</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Scanned Exit Payload (JSON)</label>
+                <textarea [(ngModel)]="exitScannerPayload" name="exitScannerPayload" rows="2"
+                          placeholder='Paste scanned payload: {"type":"VISITOR_EXIT","logId":123,...}'></textarea>
+                <button type="button" class="btn-secondary" (click)="applyExitScannerPayload()">Apply Exit Payload</button>
+              </div>
+            </div>
+
+            <p class="section-description" *ngIf="selectedExitLogId">
+              Selected Exit Target: <strong>{{ selectedExitVisitorName || 'Visitor' }}</strong> (Log ID: {{ selectedExitLogId }})
+            </p>
+
+            <div class="camera-capture-actions">
+              <button type="button" class="btn-secondary" *ngIf="isExitCameraSupported && !isExitCameraOpen" (click)="openExitCamera(true)">Take Exit Photo</button>
+              <button type="button" class="btn-secondary" *ngIf="isExitCameraSupported && !isExitCameraOpen" (click)="openExitCamera(false)">Use External Camera</button>
+              <button type="button" class="btn-secondary" *ngIf="isExitCameraOpen" (click)="captureExitCameraPhoto()">Capture Exit Photo</button>
+              <button type="button" class="btn-secondary" *ngIf="isExitCameraOpen" (click)="stopExitCamera()">Close Camera</button>
+              <button type="button" class="btn-secondary" *ngIf="canShowFaceCaptureImage(exitFaceCapture)" (click)="clearExitPhoto()">Remove Exit Photo</button>
+            </div>
+
+            <div class="camera-capture-preview" *ngIf="isExitCameraOpen">
+              <video id="exitCameraVideo" autoplay playsinline muted></video>
+            </div>
+            <p class="camera-capture-error" *ngIf="exitCameraError">{{ exitCameraError }}</p>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Upload Exit Photo (Optional)</label>
+                <input type="file" accept="image/*" capture="user" (change)="onExitFaceCaptureSelected($event)">
+              </div>
+              <div class="form-group" *ngIf="canShowFaceCaptureImage(exitFaceCapture)">
+                <label>Exit Photo Preview</label>
+                <img class="visitor-photo-preview" [src]="exitFaceCapture" alt="Exit photo preview">
+              </div>
+            </div>
+
+            <p class="section-description" *ngIf="exitMatchConfidence !== null">
+              Approx Face Match Confidence: <strong>{{ exitMatchConfidence }}%</strong>
+            </p>
+
+            <button type="button" class="btn-warning-sm" [disabled]="!selectedExitLogId" (click)="markVisitorExit(selectedExitLogId || undefined)">
+              🚪 Mark Exit (Verified)
+            </button>
+          </div>
+
+          <div class="active-visitors-list">
+            <div class="no-data" *ngIf="activeVisitors.length === 0">
+              <p>No visitors currently inside the society.</p>
+            </div>
+            
+            <div class="visitor-card active" *ngFor="let visitor of activeVisitors">
+              <div class="visitor-info">
+                <h4>{{ visitor.visitorName }}</h4>
+                <p><strong>Type:</strong> {{ visitor.visitorType }} | 
+                   <strong>Apartment:</strong> {{ visitor.apartmentNumber }}</p>
+                <p><strong>Entry:</strong> {{ visitor.entryTime | date: 'MMM d, h:mm a' }}</p>
+              </div>
+              <div class="exit-actions-inline">
+                <button class="btn-secondary" type="button" (click)="setSelectedExitVisitor(visitor)">Select For Exit</button>
+                <button class="btn-secondary" type="button" (click)="toggleExitQr(visitor.id!)">Show Exit QR</button>
+                <button class="btn-warning-sm" type="button" (click)="markVisitorExit(visitor.id!)">🚪 Mark Exit</button>
+              </div>
+              <div class="exit-qr-inline" *ngIf="showExitQrForLogId === visitor.id">
+                <img [src]="getExitQrImageUrl(visitor)" alt="Exit QR">
+                <div class="scanner-qr-meta">
+                  <p class="qr-link">{{ getExitQrPayload(visitor) }}</p>
+                  <button type="button" class="btn-secondary" (click)="copyExitQrPayload(visitor)">Copy Exit Payload</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Complete Approval Logs -->
+        <div class="tab-section">
+          <h3>Approval Logs</h3>
+          <div class="search-bar">
+            <input type="text" [(ngModel)]="approvalLogSearchQuery" 
+                   (input)="filterApprovalLogs()"
+                   placeholder="Search by visitor name, apartment, phone...">
+          </div>
+          
+          <div class="approval-logs-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Society</th>
+                  <th>Photo</th>
+                  <th>Visitor</th>
+                  <th>Type</th>
+                  <th>Service</th>
+                  <th>Apartment</th>
+                  <th>Phone</th>
+                  <th>Approved By</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let log of filteredApprovalLogs">
+                  <td>{{ log.entryTime | date: 'MMM d, h:mm a' }}</td>
+                  <td>{{ log.societyName || user?.societyName || '-' }}</td>
+                  <td>
+                    <img *ngIf="canShowFaceCaptureImage(log.faceCapture)" class="visitor-photo-thumb"
+                         [src]="log.faceCapture" alt="Visitor">
+                    <span *ngIf="!canShowFaceCaptureImage(log.faceCapture)">-</span>
+                  </td>
+                  <td>
+                    {{ log.visitorName }}
+                    <div class="subtext" *ngIf="log.ownerName">Owner: {{ log.ownerName }}</div>
+                  </td>
+                   <td><span class="type-badge" [class]="log.visitorType ? log.visitorType.toLowerCase() : ''">
+                    {{ log.visitorType || '-' }}</span></td>
+                  <td>
+                    <span *ngIf="log.visitorType === 'DELIVERY' && log.deliveryService" class="service-badge delivery">
+                      {{ log.deliveryService === 'Other' ? log.deliveryServiceOther : log.deliveryService }}
+                    </span>
+                    <span *ngIf="log.visitorType === 'CAB' && log.cabService" class="service-badge cab">
+                      {{ log.cabService === 'Other' ? log.cabServiceOther : log.cabService }}
+                    </span>
+                    <span *ngIf="log.visitorType !== 'DELIVERY' && log.visitorType !== 'CAB'">-</span>
+                  </td>
+                  <td>{{ log.apartmentNumber }}</td>
+                  <td>
+                    {{ log.visitorPhone || '-' }}
+                    <div class="subtext" *ngIf="log.visitorAadhaar">Aadhaar: {{ log.visitorAadhaar }}</div>
+                  </td>
+                  <td>{{ log.approvedBy }}</td>
+                  <td>
+                    <span class="status-indicator" [class.exited]="log.exitTime">
+                      {{ log.exitTime ? '✅ Exited' : '🟢 Inside' }}
+                    </span>
+                    <div class="subtext" *ngIf="log.scannerSource">{{ log.scannerSource }}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Redesigned Real-Time Approval Pop-up Notification (Compact, VIBGYOR, Minimal) -->
+<div class="approval-popup-overlay" *ngIf="showApprovalPopup && currentApprovalRequest" (click)="closeApprovalPopup()">
+  <div class="approval-popup-container popup-compact" (click)="$event.stopPropagation()">
+    <button class="popup-close-btn" (click)="closeApprovalPopup()">✕</button>
+    <div class="popup-header-compact vibgyor-bg" [ngClass]="getServiceColorClass(currentApprovalRequest)">
+      <div class="popup-header-top">
+        <span class="visitor-type-pill vibgyor-pill" [ngClass]="getVibgyorClass(currentApprovalRequest.visitorType)">
+          {{ getServiceDisplayName(currentApprovalRequest) }}
+        </span>
+      </div>
+      <div class="popup-header-main">
+        <span class="vendor-logo-mini">{{ getVendorLogo(currentApprovalRequest) }}</span>
+        <div class="popup-header-details">
+          <span class="popup-service">{{ getServiceDisplayName(currentApprovalRequest) }}</span>
+          <span class="popup-person">{{ getServicePersonName(currentApprovalRequest) }}</span>
+          <span class="popup-contact">{{ currentApprovalRequest.visitorPhone || '-' }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="popup-body-compact">
+      <div class="popup-face-row" *ngIf="popupFaceCapturePreview">
+        <img [src]="popupFaceCapturePreview" alt="Visitor capture" class="popup-face-image" loading="lazy" />
+      </div>
+      <div class="popup-row">
+        <span class="popup-label">Apt:</span>
+        <span class="popup-value">{{ currentApprovalRequest.apartmentNumber }}</span>
+      </div>
+      <div class="popup-row popup-timer-row">
+        <span class="alarm-icon">🔔</span>
+        <span class="alarm-timer">{{ popupTimer }}s</span>
+      </div>
+    </div>
+    <div class="popup-actions-compact expanded">
+      <button class="btn-popup-approve-compact expanded" (click)="approvePopupRequest()">✅ Approve</button>
+      <button class="btn-popup-reject-compact expanded" (click)="rejectPopupRequest()">❌ Reject</button>
+    </div>
+    <div class="popup-warning-compact" *ngIf="popupRequestQueue.length > 1">
+      ⚠️ {{ popupRequestQueue.length - 1 }} more pending
+    </div>
+  </div>
+</div>
+<!-- CR Marketplace Modal -->
+<div class="modal-overlay" *ngIf="showCRMarketplaceModal" (click)="closeCRMarketplace()">
+  <div class="modal-container cr-marketplace-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>🍔 CR Market Place</h2>
+      <button class="close-btn" (click)="closeCRMarketplace()">✕</button>
+    </div>
+
+    <!-- View Switcher -->
+    <div class="cr-view-tabs">
+      <button 
+        class="cr-tab-btn" 
+        [class.active]="crMarketplaceView === 'buyer'"
+        (click)="switchCRView('buyer')">
+        🛒 Browse & Buy
+      </button>
+      <button 
+        class="cr-tab-btn" 
+        [class.active]="crMarketplaceView === 'cart'"
+        (click)="switchCRView('cart')">
+        🛒 Cart <span class="cart-badge" *ngIf="crCart.length > 0">({{ crCart.length }})</span>
+      </button>
+      <button 
+        class="cr-tab-btn" 
+        [class.active]="crMarketplaceView === 'orders'"
+        (click)="switchCRView('orders')">
+        📋 My Orders
+      </button>
+    </div>
+
+    <!-- Buyer View -->
+    <div *ngIf="crMarketplaceView === 'buyer'" class="cr-buyer-view">
+      <div class="cr-category-filter">
+        <button class="filter-btn" (click)="filterCRProductsByCategory('All')">All</button>
+        <button class="filter-btn" *ngFor="let cat of crProductCategories" 
+                (click)="filterCRProductsByCategory(cat)">
+          {{ cat }}
+        </button>
+      </div>
+
+      <div class="cr-products-grid">
+        <div class="cr-product-card" *ngFor="let product of filteredCRProducts">
+          <div class="product-image">
+            <img [src]="product.image || 'assets/placeholder-food.jpg'" [alt]="product.productName">
+            <span class="product-category-badge">{{ product.category }}</span>
+          </div>
+          <div class="product-info">
+            <h3>{{ product.productName }}</h3>
+            <p class="product-seller">By: {{ product.seller }}</p>
+            <p class="product-description">{{ product.description }}</p>
+            <div class="product-footer">
+              <span class="product-price">₹{{ product.price }} <small>{{ product.unit }}</small></span>
+              <span class="product-stock" [class.low-stock]="product.stock < 10">
+                {{ product.stock }} in stock
+              </span>
+            </div>
+            <div class="product-actions">
+              <button class="btn-view-detail" (click)="openProductDetail(product)">View Details</button>
+              <button class="btn-add-to-cart" (click)="addToCart(product, 1)" 
+                      [disabled]="product.stock === 0">
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-products" *ngIf="filteredCRProducts.length === 0">
+          <p>📦 No products available in this category yet.</p>
+          <p>Be the first to list your products!</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Cart View -->
+    <div *ngIf="crMarketplaceView === 'cart'" class="cr-cart-view">
+      <h3>🛒 Shopping Cart</h3>
+      
+      <div *ngIf="crCart.length === 0" class="empty-cart">
+        <div class="empty-icon">🛒</div>
+        <h4>Your cart is empty</h4>
+        <p>Add items from CR Market Place to get started</p>
+        <button class="btn-browse" (click)="switchCRView('buyer')">Browse Products</button>
+      </div>
+      
+      <div *ngIf="crCart.length > 0" class="cart-content">
+        <div class="cart-items">
+          <div class="cart-item" *ngFor="let item of crCart; let i = index">
+            <img [src]="item.image || 'assets/placeholder-food.jpg'" [alt]="item.productName">
+            <div class="item-details">
+              <h4>{{ item.productName }}</h4>
+              <p class="item-seller">Sold by: {{ item.seller }}</p>
+              <p class="item-price">₹{{ item.price }} each</p>
+            </div>
+            <div class="item-quantity">
+              <button class="qty-btn" (click)="updateCRCartQuantity(i, -1)">-</button>
+              <span class="qty-value">{{ item.quantity }}</span>
+              <button class="qty-btn" (click)="updateCRCartQuantity(i, 1)">+</button>
+            </div>
+            <div class="item-total">
+              <p class="total-price">₹{{ item.price * item.quantity }}</p>
+              <button class="remove-btn" (click)="removeFromCRCart(i)">🗑️ Remove</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="cart-summary">
+          <h3>Order Summary</h3>
+          <div class="summary-row">
+            <span>Items ({{ crCart.length }})</span>
+            <span>₹{{ getCRCartTotal() }}</span>
+          </div>
+          <div class="summary-row">
+            <span>Delivery</span>
+            <span class="free">FREE</span>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="summary-total">
+            <span>Total</span>
+            <span>₹{{ getCRCartTotal() }}</span>
+          </div>
+          <button class="checkout-btn" (click)="proceedToCCAvenue()">
+            💳 Proceed to Checkout (CCAvenue)
+          </button>
+          <p class="payment-info">Secure payment via CCAvenue Gateway</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Seller View -->
+    <div *ngIf="crMarketplaceView === 'seller'" class="cr-seller-view">
+      <div class="seller-intro">
+        <h3>📦 Post Your Products</h3>
+        <p>List food items, beverages, or other products for residents to purchase</p>
+      </div>
+
+      <form class="cr-product-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Product Name *</label>
+            <input type="text" [(ngModel)]="crProductForm.productName" 
+                   name="productName" placeholder="e.g., Fresh Vegetables, Homemade Cake">
+          </div>
+
+          <div class="form-group">
+            <label>Category *</label>
+            <select [(ngModel)]="crProductForm.category" name="category">
+              <option *ngFor="let cat of crProductCategories" [value]="cat">{{ cat }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Price (₹) *</label>
+            <input type="number" [(ngModel)]="crProductForm.price" 
+                   name="price" placeholder="100" min="0">
+          </div>
+
+          <div class="form-group">
+            <label>Unit</label>
+            <select [(ngModel)]="crProductForm.unit" name="unit">
+              <option value="per item">per item</option>
+              <option value="per kg">per kg</option>
+              <option value="per dozen">per dozen</option>
+              <option value="per piece">per piece</option>
+              <option value="per pack">per pack</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Stock Quantity *</label>
+            <input type="number" [(ngModel)]="crProductForm.stock" 
+                   name="stock" placeholder="50" min="0">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [(ngModel)]="crProductForm.description" name="description" 
+                    rows="3" placeholder="Describe your product..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Product Image URL (optional)</label>
+          <input type="text" [(ngModel)]="crProductForm.image" 
+                 name="image" placeholder="https://example.com/image.jpg">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-submit-product" 
+                  (click)="submitCRProduct()" 
+                  [disabled]="isSubmittingCRProduct">
+            {{ isSubmittingCRProduct ? 'Posting...' : '📤 Post Product' }}
+          </button>
+        </div>
+
+        <div class="submit-message" *ngIf="crProductSubmitMessage" 
+             [class.success]="crProductSubmitMessage.includes('success')">
+          {{ crProductSubmitMessage }}
+        </div>
+      </form>
+    </div>
+
+    <!-- Orders View -->
+    <div *ngIf="crMarketplaceView === 'orders'" class="cr-orders-view">
+      <h3>📋 Your Orders</h3>
+      
+      <div class="orders-list">
+        <div class="order-card" *ngFor="let order of crOrders">
+          <div class="order-header">
+            <span class="order-id">Order #{{ order.id }}</span>
+            <span class="order-date">{{ order.createdAt | date:'short' }}</span>
+            <span class="order-status" [class]="'status-' + order.status">
+              {{ order.status }}
+            </span>
+          </div>
+          <div class="order-items">
+            <div class="order-item" *ngFor="let item of order.items">
+              <span>{{ item.productName }} x{{ item.quantity }}</span>
+              <span class="item-price">₹{{ item.price * item.quantity }}</span>
+            </div>
+          </div>
+          <div class="order-footer">
+            <span class="order-total">Total: ₹{{ order.totalAmount }}</span>
+            <span class="payment-method">{{ order.paymentMethod || 'CCAvenue' }}</span>
+          </div>
+        </div>
+
+        <div class="no-orders" *ngIf="crOrders.length === 0">
+          <p>📦 No orders yet</p>
+          <p>Start shopping from CR Market Place!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

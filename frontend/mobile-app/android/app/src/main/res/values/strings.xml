@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NammaSociety</string>
+    <string name="title_activity_main">NammaSociety</string>
+    <string name="package_name">com.nammasociety.app</string>
+    <string name="custom_url_scheme">com.nammasociety.app</string>
+</resources>

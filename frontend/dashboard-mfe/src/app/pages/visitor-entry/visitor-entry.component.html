@@ -1,0 +1,121 @@
+<div class="visitor-entry-page">
+  <div class="visitor-entry-card" *ngIf="!submitted">
+    <h2>Visitor Self Entry</h2>
+    <p class="subtitle">Fill your details. Approval request will be sent to the apartment owner.</p>
+
+    <div class="meta-line" *ngIf="form.societyName">
+      <strong>Society:</strong> {{ form.societyName }}
+    </div>
+    <div class="meta-line" *ngIf="scannerCodeUpdatedAt">
+      <strong>QR Updated:</strong> {{ scannerCodeUpdatedAt | date: 'MMM d, h:mm a' }}
+    </div>
+
+    <div class="form-grid">
+      <label class="full-width">
+        Society Name *
+        <input type="text" [(ngModel)]="form.societyName" name="societyName"
+               (blur)="onSocietyNameChange()" placeholder="Enter society name">
+      </label>
+
+      <label class="full-width">
+        Scanner Code (from QR, if available)
+        <input type="text" [(ngModel)]="scannerCode" name="scannerCode"
+               placeholder="SCN-...">
+      </label>
+
+      <label>
+        Visitor Type *
+        <select [(ngModel)]="form.visitorType" name="visitorType">
+          <option *ngFor="let item of visitorTypeOptions" [value]="item.value">{{ item.label }}</option>
+        </select>
+      </label>
+
+      <label>
+        Service / Category
+        <input type="text" [(ngModel)]="form.serviceSubCategory" name="serviceSubCategory" placeholder="Swiggy, Uber, Electrician, etc.">
+      </label>
+
+      <label>
+        Visitor Name *
+        <input type="text" [(ngModel)]="form.visitorName" name="visitorName" placeholder="Enter your full name">
+      </label>
+
+      <label>
+        Visitor Phone
+        <input type="tel" [(ngModel)]="form.visitorPhone" name="visitorPhone" placeholder="Mobile number">
+      </label>
+
+      <label>
+        Visitor Aadhaar
+        <input type="text" [(ngModel)]="form.visitorAadhaar" name="visitorAadhaar" placeholder="Optional">
+      </label>
+
+      <label>
+        ID Proof
+        <input type="text" [(ngModel)]="form.visitorIdProof" name="visitorIdProof" placeholder="Optional">
+      </label>
+
+      <label>
+        Tower *
+        <input type="text" [(ngModel)]="form.tower" name="tower" placeholder="Tower">
+      </label>
+
+      <label>
+        Apartment Number *
+        <input type="text" [(ngModel)]="form.apartmentNumber" name="apartmentNumber" placeholder="Flat number">
+      </label>
+
+      <label>
+        Owner Name
+        <input type="text" [(ngModel)]="form.ownerName" name="ownerName" placeholder="Owner / Resident name">
+      </label>
+
+      <label>
+        Owner Phone
+        <input type="tel" [(ngModel)]="form.ownerPhone" name="ownerPhone" placeholder="Owner phone">
+      </label>
+
+      <label>
+        Resident Phone (for approval SMS) *
+        <input type="tel" [(ngModel)]="form.residentPhone" name="residentPhone" placeholder="Resident phone">
+      </label>
+
+      <label class="full-width">
+        Purpose
+        <textarea [(ngModel)]="form.purpose" name="purpose" rows="2" placeholder="Purpose of visit"></textarea>
+      </label>
+
+      <label class="full-width">
+        Visitor Photo
+        <div class="photo-actions">
+          <button type="button" class="photo-action-btn" *ngIf="isCameraSupported && !isCameraOpen" (click)="openCamera(true)">Take Selfie</button>
+          <button type="button" class="photo-action-btn" *ngIf="isCameraSupported && !isCameraOpen" (click)="openCamera(false)">Use External Camera</button>
+          <button type="button" class="photo-action-btn" *ngIf="isCameraOpen" (click)="capturePhotoFromCamera()">Capture Photo</button>
+          <button type="button" class="photo-action-btn" *ngIf="isCameraOpen" (click)="stopCamera()">Close Camera</button>
+          <button type="button" class="photo-action-btn" *ngIf="canShowPhoto(form.faceCapture)" (click)="clearCapturedPhoto()">Remove Photo</button>
+        </div>
+        <div class="camera-preview" *ngIf="isCameraOpen">
+          <video id="visitorEntryCameraVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="camera-error" *ngIf="cameraError">{{ cameraError }}</div>
+        <input type="file" accept="image/*" capture="user" (change)="onFacePhotoSelected($event)">
+      </label>
+
+      <div class="photo-preview" *ngIf="canShowPhoto(form.faceCapture)">
+        <img [src]="form.faceCapture" alt="Visitor photo preview">
+      </div>
+    </div>
+
+    <div class="error" *ngIf="submitError">{{ submitError }}</div>
+
+    <button type="button" (click)="submit()" [disabled]="submitting">
+      {{ submitting ? 'Submitting...' : 'Submit For Approval' }}
+    </button>
+  </div>
+
+  <div class="visitor-entry-card success" *ngIf="submitted">
+    <h2>Request Submitted</h2>
+    <p>Your entry request has been sent to the apartment owner for approval.</p>
+    <p>Security can track this in approval logs.</p>
+  </div>
+</div>

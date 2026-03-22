@@ -1,0 +1,321 @@
+<div class="login-container">
+  <!-- Fixed Header with Logo -->
+  <div class="header-fixed">
+    <div class="header-content">
+      <div class="logo-section">
+        <img src="assets/images/logo.svg" alt="NammaSociety Logo" class="logo-image">
+        <div class="logo-text-container">
+          <span class="logo-text">NammaSociety</span>
+          <span class="logo-tagline">Smart Living, Simplified ✨</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Login Content -->
+  <div class="login-content">
+    <div class="login-box">
+      <div class="login-form-container">
+        <h1>Login to NammaSociety</h1>
+        
+        <!-- Login Tabs -->
+        <div class="login-tabs">
+          <button 
+            class="tab-button" 
+            [class.active]="activeLoginTab === 'credentials'"
+            (click)="switchLoginTab('credentials')">
+            <span class="tab-icon">👤</span>
+            Username & Password
+          </button>
+          <button 
+            class="tab-button" 
+            [class.active]="activeLoginTab === 'mobile'"
+            (click)="switchLoginTab('mobile')">
+            <span class="tab-icon">📱</span>
+            Mobile & OTP
+          </button>
+        </div>
+
+        <!-- Credentials Login Form -->
+        <form *ngIf="activeLoginTab === 'credentials'" (ngSubmit)="login()" #loginForm="ngForm">
+          <div class="form-group">
+            <label for="username">Username <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="username" 
+              name="username"
+              [(ngModel)]="username"
+              placeholder="Enter your username"
+              (keypress)="handleKeyPress($event)"
+              required>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password <span class="required">*</span></label>
+            <input 
+              type="password" 
+              id="password" 
+              name="password"
+              [(ngModel)]="password"
+              placeholder="Enter your password"
+              (keypress)="handleKeyPress($event)"
+              required>
+          </div>
+
+          <!-- Captcha -->
+          <div class="form-group captcha-group">
+            <label>Enter Captcha <span class="required">*</span></label>
+            <div class="captcha-display-wrapper">
+              <div class="captcha-display">{{ generatedCredentialsCaptcha }}</div>
+              <button type="button" class="captcha-refresh-btn" (click)="generateCredentialsCaptcha()" title="Refresh Captcha">
+                Refresh
+              </button>
+            </div>
+            <input 
+              type="text" 
+              name="captcha"
+              [(ngModel)]="credentialsCaptcha"
+              placeholder="Enter captcha code"
+              maxlength="6"
+              required>
+          </div>
+
+          <div class="forgot-password-link">
+            <a href="javascript:void(0)" (click)="openForgotPasswordModal()">Forgot Password?</a>
+          </div>
+
+          <div class="error-message" *ngIf="error && activeLoginTab === 'credentials'">
+            <p>{{ error }}</p>
+          </div>
+
+          <div class="success-message" *ngIf="successMessage && activeLoginTab === 'credentials'">
+            <p>{{ successMessage }}</p>
+          </div>
+
+          <button 
+            type="submit" 
+            class="login-btn"
+            [disabled]="loading">
+            {{ loading ? 'Logging in...' : 'Login' }}
+          </button>
+        </form>
+
+        <!-- Mobile OTP Login Form -->
+        <form *ngIf="activeLoginTab === 'mobile'" (ngSubmit)="otpSent ? verifyOTP() : sendOTP()" #mobileForm="ngForm">
+          <div class="form-group">
+            <label for="mobileNumber">Mobile Number <span class="required">*</span></label>
+            <input 
+              type="tel" 
+              id="mobileNumber" 
+              name="mobileNumber"
+              [(ngModel)]="mobileNumber"
+              placeholder="Enter 10-digit mobile number"
+              maxlength="10"
+              pattern="[0-9]{10}"
+              [disabled]="otpSent"
+              (keypress)="handleKeyPress($event)"
+              required>
+          </div>
+
+          <div class="form-group" *ngIf="otpSent">
+            <label for="otp">Enter OTP <span class="required">*</span></label>
+            <input 
+              type="text" 
+              id="otp" 
+              name="otp"
+              [(ngModel)]="otp"
+              placeholder="Enter 6-digit OTP"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              (keypress)="handleKeyPress($event)"
+              required>
+            <div class="otp-timer" *ngIf="otpTimer > 0">
+              OTP expires in {{ otpTimer }} seconds
+            </div>
+            <div class="resend-otp" *ngIf="otpTimer === 0">
+              <a href="javascript:void(0)" (click)="resendOTP()">Resend OTP</a>
+            </div>
+          </div>
+
+          <!-- Captcha (only shown when sending OTP) -->
+          <div class="form-group captcha-group" *ngIf="!otpSent">
+            <label>Enter Captcha <span class="required">*</span></label>
+            <div class="captcha-display-wrapper">
+              <div class="captcha-display">{{ generatedMobileCaptcha }}</div>
+              <button type="button" class="captcha-refresh-btn" (click)="generateMobileCaptcha()" title="Refresh Captcha">
+                Refresh
+              </button>
+            </div>
+            <input 
+              type="text" 
+              name="mobileCaptcha"
+              [(ngModel)]="mobileCaptcha"
+              placeholder="Enter captcha code"
+              maxlength="6"
+              required>
+          </div>
+
+          <div class="forgot-password-link" *ngIf="!otpSent">
+            <a href="javascript:void(0)" (click)="openForgotPasswordModal()">Forgot Password?</a>
+          </div>
+
+          <div class="error-message" *ngIf="error && activeLoginTab === 'mobile'">
+            <p>{{ error }}</p>
+          </div>
+
+          <div class="success-message" *ngIf="successMessage && activeLoginTab === 'mobile'">
+            <p>{{ successMessage }}</p>
+          </div>
+
+          <button 
+            type="submit" 
+            class="login-btn"
+            [disabled]="loading">
+            {{ loading ? 'Processing...' : (otpSent ? 'Verify OTP & Login' : 'Send OTP') }}
+          </button>
+        </form>
+
+        <div class="register-section">
+          <p>New to NammaSociety?</p>
+          <button 
+            type="button" 
+            class="register-btn"
+            (click)="goToRegister()">
+            Create Account
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Background Image -->
+    <div class="background-image"></div>
+  </div>
+
+  <!-- Forgot Password Modal -->
+  <div class="modal-overlay" *ngIf="showForgotPasswordModal" (click)="closeForgotPasswordModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">Reset Password</h2>
+        <button class="close-btn" (click)="closeForgotPasswordModal()">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Step 1: Enter Mobile/Email -->
+        <div *ngIf="forgotPasswordStep === 'identifier'">
+          <div class="method-tabs">
+            <button 
+              type="button"
+              class="method-tab"
+              [class.active]="forgotPasswordMethod === 'mobile'"
+              (click)="forgotPasswordMethod = 'mobile'; forgotPasswordIdentifier = ''">
+              📱 Mobile
+            </button>
+            <button 
+              type="button"
+              class="method-tab"
+              [class.active]="forgotPasswordMethod === 'email'"
+              (click)="forgotPasswordMethod = 'email'; forgotPasswordIdentifier = ''">
+              📧 Email
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label *ngIf="forgotPasswordMethod === 'mobile'">Mobile Number</label>
+            <label *ngIf="forgotPasswordMethod === 'email'">Email Address</label>
+            <input 
+              type="text" 
+              [(ngModel)]="forgotPasswordIdentifier"
+              [placeholder]="forgotPasswordMethod === 'mobile' ? 'Enter 10-digit mobile number' : 'Enter your email address'"
+              class="form-control">
+          </div>
+
+          <button 
+            type="button"
+            class="btn-primary btn-block"
+            (click)="sendForgotPasswordOTP()"
+            [disabled]="loading">
+            {{ loading ? 'Sending...' : 'Send OTP' }}
+          </button>
+        </div>
+
+        <!-- Step 2: Verify OTP -->
+        <div *ngIf="forgotPasswordStep === 'otp'">
+          <p class="info-text">
+            We've sent a 6-digit OTP to your {{ forgotPasswordMethod === 'mobile' ? 'mobile number' : 'email' }}.
+          </p>
+          
+          <div class="form-group">
+            <label>Enter OTP</label>
+            <input 
+              type="text" 
+              [(ngModel)]="forgotPasswordOtp"
+              placeholder="Enter 6-digit OTP"
+              maxlength="6"
+              class="form-control">
+          </div>
+
+          <button 
+            type="button"
+            class="btn-primary btn-block"
+            (click)="verifyForgotPasswordOTP()"
+            [disabled]="loading">
+            {{ loading ? 'Verifying...' : 'Verify OTP' }}
+          </button>
+        </div>
+
+        <!-- Step 3: Set New Password -->
+        <div *ngIf="forgotPasswordStep === 'newPassword'">
+          <p class="info-text">
+            Please set your new password.
+          </p>
+          
+          <div class="form-group">
+            <label>New Password</label>
+            <input 
+              type="password" 
+              [(ngModel)]="newPassword"
+              placeholder="Enter new password (min 6 characters)"
+              class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input 
+              type="password" 
+              [(ngModel)]="confirmNewPassword"
+              placeholder="Re-enter new password"
+              class="form-control">
+          </div>
+
+          <button 
+            type="button"
+            class="btn-primary btn-block"
+            (click)="resetPassword()"
+            [disabled]="loading">
+            {{ loading ? 'Resetting...' : 'Reset Password' }}
+          </button>
+        </div>
+
+        <div class="error-message" *ngIf="error">
+          <p>{{ error }}</p>
+        </div>
+
+        <div class="success-message" *ngIf="successMessage">
+          <p>{{ successMessage }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- Password Reset Modal -->
+  <app-password-reset-modal
+    [showPasswordResetModal]="showPasswordResetModal"
+    [token]="currentToken"
+    (onPasswordReset)="onPasswordReset($event)">
+  </app-password-reset-modal>
+
+  <!-- Footer with Copyright -->
+  <footer class="page-footer">
+    <p>&copy; 2026 NammaSociety-AMP. All Rights Reserved.</p>
+  </footer>
+</div>

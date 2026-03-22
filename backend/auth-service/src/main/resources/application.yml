@@ -1,0 +1,77 @@
+﻿server:
+  port: 8001
+
+spring:
+  application:
+    name: auth-service
+  profiles:
+    active: dev
+  
+  # PostgreSQL Database Configuration
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/postgres
+    username: postgres
+    password: Chennai@2006
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+      minimum-idle: 5
+  
+  # JPA/Hibernate Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+  
+  # Mail Configuration for Gmail SMTP
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:NammaSociety.notifications@gmail.com}
+    password: ${MAIL_PASSWORD:Chennai@2006}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+# Twilio SMS Configuration
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID:YOUR_TWILIO_ACCOUNT_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN:YOUR_TWILIO_AUTH_TOKEN}
+  phone-number: ${TWILIO_PHONE_NUMBER:YOUR_TWILIO_PHONE_NUMBER}
+
+# Notification Settings
+notification:
+  email:
+    enabled: true
+    from: ${MAIL_USERNAME:noreply@NammaSociety.com}
+    from-name: NammaSociety
+  sms:
+    enabled: true
+
+jwt:
+  secret: "NammaSociety-secure-jwt-key-2026-with-minimum-512-bits-for-hs512-algorithm-encryption-standard-required"
+  expiration: 86400000
+
+audit:
+  serviceUrl: "http://localhost:8002"
+
+logging:
+  level:
+    root: INFO
+    com.NammaSociety: DEBUG
+

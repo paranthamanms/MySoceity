@@ -1,0 +1,21 @@
+﻿server:
+  port: 8001
+
+spring:
+  application:
+    name: auth-service
+  profiles:
+    active: dev
+
+jwt:
+  secret: "NammaSociety-secure-jwt-key-2026-with-minimum-512-bits-for-hs512-algorithm-encryption-standard-required"
+  expiration: 86400000
+
+audit:
+  serviceUrl: "http://localhost:8002"
+
+logging:
+  level:
+    root: INFO
+    com.NammaSociety: DEBUG
+

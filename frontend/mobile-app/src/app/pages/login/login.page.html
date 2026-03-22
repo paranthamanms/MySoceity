@@ -1,0 +1,78 @@
+<ion-content class="login-content" [fullscreen]="true">
+  <!-- Logo / Header -->
+  <div class="login-header">
+    <div class="logo-circle">
+      <ion-icon name="home-outline"></ion-icon>
+    </div>
+    <h1 class="app-title">NammaSociety</h1>
+    <p class="app-subtitle">Your Community, Connected</p>
+  </div>
+
+  <!-- Tab Selector -->
+  <div class="tab-row">
+    <button class="tab-btn" [class.active]="activeTab === 'credentials'" (click)="activeTab = 'credentials'">
+      <ion-icon name="person-outline"></ion-icon> Password
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'otp'" (click)="activeTab = 'otp'">
+      <ion-icon name="phone-portrait-outline"></ion-icon> Mobile OTP
+    </button>
+  </div>
+
+  <!-- Credentials Login -->
+  <div class="login-form" *ngIf="activeTab === 'credentials'">
+    <div class="form-group">
+      <ion-item class="input-item" lines="none">
+        <ion-icon name="person-outline" slot="start" color="medium"></ion-icon>
+        <ion-input placeholder="Username or Email" [(ngModel)]="username" type="text" autocomplete="username"></ion-input>
+      </ion-item>
+    </div>
+    <div class="form-group">
+      <ion-item class="input-item" lines="none">
+        <ion-icon name="lock-closed-outline" slot="start" color="medium"></ion-icon>
+        <ion-input placeholder="Password" [(ngModel)]="password" [type]="showPassword ? 'text' : 'password'" autocomplete="current-password"></ion-input>
+        <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" slot="end" color="medium" (click)="showPassword = !showPassword"></ion-icon>
+      </ion-item>
+    </div>
+    <ion-button expand="block" class="login-btn" (click)="onCredentialsLogin()">
+      Sign In
+      <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+    </ion-button>
+  </div>
+
+  <!-- OTP Login -->
+  <div class="login-form" *ngIf="activeTab === 'otp'">
+    <div class="form-group">
+      <ion-item class="input-item" lines="none">
+        <ion-icon name="call-outline" slot="start" color="medium"></ion-icon>
+        <ion-input placeholder="10-digit Mobile Number" [(ngModel)]="mobileNumber" type="tel" maxlength="10" [readonly]="otpSent"></ion-input>
+      </ion-item>
+    </div>
+    <ion-button *ngIf="!otpSent" expand="block" class="otp-btn" (click)="onSendOtp()">
+      Send OTP
+      <ion-icon name="send-outline" slot="end"></ion-icon>
+    </ion-button>
+
+    <ng-container *ngIf="otpSent">
+      <div class="form-group">
+        <ion-item class="input-item" lines="none">
+          <ion-icon name="keypad-outline" slot="start" color="medium"></ion-icon>
+          <ion-input placeholder="Enter 6-digit OTP" [(ngModel)]="otp" type="number" maxlength="6"></ion-input>
+        </ion-item>
+      </div>
+      <ion-button expand="block" class="login-btn" (click)="onOtpLogin()">
+        Verify & Sign In
+        <ion-icon name="checkmark-circle-outline" slot="end"></ion-icon>
+      </ion-button>
+      <div class="resend-row">
+        <span *ngIf="otpTimer > 0" class="timer-text">Resend in {{ otpTimer }}s</span>
+        <ion-button *ngIf="otpTimer <= 0" fill="clear" size="small" (click)="resendOtp()">Resend OTP</ion-button>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- Error message -->
+  <div class="error-banner" *ngIf="errorMsg">
+    <ion-icon name="warning-outline"></ion-icon>
+    {{ errorMsg }}
+  </div>
+</ion-content>

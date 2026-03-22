@@ -1,0 +1,236 @@
+﻿{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Auto-shutdown/start for NammaSociety EC2 instance (12 hours/day)",
+  "Parameters": {
+    "InstanceId": {
+      "Type": "String",
+      "Description": "EC2 Instance ID to start/stop",
+      "Default": "i-xxxxxxxxxxxxxxxxx"
+    },
+    "StartTime": {
+      "Type": "String",
+      "Description": "Start time in cron format (UTC)",
+      "Default": "cron(30 2 * * ? *)"
+    },
+    "StopTime": {
+      "Type": "String",
+      "Description": "Stop time in cron format (UTC)",
+      "Default": "cron(30 14 * * ? *)"
+    }
+  },
+  "Resources": {
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "NammaSocietyEC2SchedulerRole",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "EC2StartStopPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:StartInstances",
+                    "ec2:StopInstances",
+                    "ec2:DescribeInstances"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "StartInstanceFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "NammaSociety-StartEC2",
+        "Runtime": "python3.9",
+        "Handler": "index.lambda_handler",
+        "Role": {
+          "Fn::GetAtt": ["LambdaExecutionRole", "Arn"]
+        },
+        "Environment": {
+          "Variables": {
+            "INSTANCE_ID": {
+              "Ref": "InstanceId"
+            }
+          }
+        },
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "\n",
+              [
+                "import boto3",
+                "import os",
+                "",
+                "ec2 = boto3.client('ec2')",
+                "",
+                "def lambda_handler(event, context):",
+                "    instance_id = os.environ['INSTANCE_ID']",
+                "    ",
+                "    print(f'Starting EC2 instance: {instance_id}')",
+                "    ",
+                "    try:",
+                "        response = ec2.start_instances(InstanceIds=[instance_id])",
+                "        print(f'Start response: {response}')",
+                "        return {",
+                "            'statusCode': 200,",
+                "            'body': f'Successfully started instance {instance_id}'",
+                "        }",
+                "    except Exception as e:",
+                "        print(f'Error: {str(e)}')",
+                "        raise e"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "StopInstanceFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "NammaSociety-StopEC2",
+        "Runtime": "python3.9",
+        "Handler": "index.lambda_handler",
+        "Role": {
+          "Fn::GetAtt": ["LambdaExecutionRole", "Arn"]
+        },
+        "Environment": {
+          "Variables": {
+            "INSTANCE_ID": {
+              "Ref": "InstanceId"
+            }
+          }
+        },
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "\n",
+              [
+                "import boto3",
+                "import os",
+                "",
+                "ec2 = boto3.client('ec2')",
+                "",
+                "def lambda_handler(event, context):",
+                "    instance_id = os.environ['INSTANCE_ID']",
+                "    ",
+                "    print(f'Stopping EC2 instance: {instance_id}')",
+                "    ",
+                "    try:",
+                "        response = ec2.stop_instances(InstanceIds=[instance_id])",
+                "        print(f'Stop response: {response}')",
+                "        return {",
+                "            'statusCode': 200,",
+                "            'body': f'Successfully stopped instance {instance_id}'",
+                "        }",
+                "    except Exception as e:",
+                "        print(f'Error: {str(e)}')",
+                "        raise e"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "StartScheduleRule": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Name": "NammaSociety-StartSchedule",
+        "Description": "Start NammaSociety EC2 at 8:00 AM IST (2:30 AM UTC)",
+        "ScheduleExpression": {
+          "Ref": "StartTime"
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": ["StartInstanceFunction", "Arn"]
+            },
+            "Id": "StartTarget"
+          }
+        ]
+      }
+    },
+    "StopScheduleRule": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Name": "NammaSociety-StopSchedule",
+        "Description": "Stop NammaSociety EC2 at 8:00 PM IST (2:30 PM UTC)",
+        "ScheduleExpression": {
+          "Ref": "StopTime"
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": ["StopInstanceFunction", "Arn"]
+            },
+            "Id": "StopTarget"
+          }
+        ]
+      }
+    },
+    "StartLambdaPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "StartInstanceFunction"
+        },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": ["StartScheduleRule", "Arn"]
+        }
+      }
+    },
+    "StopLambdaPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "StopInstanceFunction"
+        },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": ["StopScheduleRule", "Arn"]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "StartFunctionArn": {
+      "Description": "ARN of Start Lambda Function",
+      "Value": {
+        "Fn::GetAtt": ["StartInstanceFunction", "Arn"]
+      }
+    },
+    "StopFunctionArn": {
+      "Description": "ARN of Stop Lambda Function",
+      "Value": {
+        "Fn::GetAtt": ["StopInstanceFunction", "Arn"]
+      }
+    }
+  }
+}
+
