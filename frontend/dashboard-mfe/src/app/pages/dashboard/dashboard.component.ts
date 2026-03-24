@@ -7,6 +7,7 @@ import { ActivatedRoute } from '@angular/router';
 import { HostListener } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { PaymentNotificationService } from '../../services/payment-notification.service';
 import { GuestManagementService } from '../../services/guest-management.service';
 import { ApprovalRequest, ApprovalLog, PreApproval } from '../../models/approval.model';
 
@@ -114,6 +115,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Admin User & Panel Data
   adminUser: any = null;
+  isDragging: boolean = false;
+  uploadedFile: File | null = null;
+  
+  // Payment Upload
+  isPaymentDragging: boolean = false;
+  uploadedPaymentFile: File | null = null;
+  uploadSuccessMessage: string = '';
+  uploadErrorMessage: string = '';
+  isUploadingPayment: boolean = false;
 
   // Admin Overview Stats
   totalUsers: number = 0;
@@ -494,6 +504,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private router: Router,
     private http: HttpClient,
+    private paymentNotificationService: PaymentNotificationService,
     private guestManagementService: GuestManagementService,
     private elementRef: ElementRef,
     private activatedRoute: ActivatedRoute
@@ -509,6 +520,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadMaintenancePayments();
     this.loadRecentAnnouncements();
     this.loadAmenities();
+    // Subscribe to payment data updates from admin panel
+    console.log('Subscribing to payment data updates...');
+    this.paymentNotificationService.paymentDataUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        console.log('✓ Payment data updated notification received from admin panel!');
+        console.log('✓ Reloading payment data...');
+        this.loadPaymentData();
+        this.loadAdminConsolidatedPayments();
+        this.loadMaintenancePayments();
+      });
+    console.log('✓ Subscription to payment data updates established');
     // Start polling for new approval requests (for non-admin, non-security users)
     setTimeout(() => {
       if (this.user && !this.isAdminUser() && !this.isSecurityGuard()) {
@@ -1822,135 +1845,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  updateCRCartQuantity(index: number, change: number): void {
-    const item = this.crCart[index];
-    const newQuantity = item.quantity + change;
-    
-    if (newQuantity > 0) {
-      item.quantity = newQuantity;
-    } else {
-      // Remove item if quantity becomes 0
-      this.removeFromCRCart(index);
-    }
-  }
-
-  removeFromCRCart(index: number): void {
-    if (confirm('Remove this item from cart?')) {
-      this.crCart.splice(index, 1);
-      console.log('Item removed from cart. Remaining items:', this.crCart.length);
-    }
-  }
-
-  getCRCartTotal(): number {
-    return this.crCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  }
-
-  proceedToCCAvenue(): void {
-    if (this.crCart.length === 0) {
-      alert('Your cart is empty!');
-      return;
-    }
-
-    const totalAmount = this.getCRCartTotal();
-    const orderId = `CRORDER_${Date.now()}`;
-    
-    // Prepare order data for backend
-    const orderData = {
-      orderId: orderId,
-      items: this.crCart.map(item => ({
-        productId: item.productId,
-        productName: item.productName,
-        quantity: item.quantity,
-        price: item.price,
-        seller: item.seller,
-        subtotal: item.price * item.quantity
-      })),
-      totalAmount: totalAmount,
-      userId: this.user?.id,
-      username: this.user?.username,
-      societyName: this.user?.societyName,
-      apartmentNumber: this.user?.apartmentNumber,
-      phone: this.user?.phone_number,
-      email: this.user?.email,
-      paymentMethod: 'CCAvenue',
-      paymentStatus: 'PENDING',
-      orderStatus: 'PAYMENT_PENDING',
-      createdAt: new Date().toISOString()
-    };
-
-    console.log('Creating order for CCAvenue payment:', orderData);
-
-    // Create order in backend
-    this.http.post('http://localhost:8002/api/cr-marketplace/orders/create', orderData)
-      .subscribe({
-        next: (response: any) => {
-          console.log('Order created successfully:', response);
-          
-          // Store order ID for payment confirmation
-          sessionStorage.setItem('pending_cr_order', JSON.stringify({
-            orderId: orderId,
-            amount: totalAmount,
-            items: this.crCart
-          }));
-
-          // CCAvenue integration
-          // In production, backend will return encrypted request data
-          if (confirm(`Proceed to CCAvenue Payment Gateway?\n\nOrder ID: ${orderId}\nTotal Amount: ₹${totalAmount}\n\nNote: This will redirect to CCAvenue for secure payment.`)) {
-            // TODO: Replace with actual CCAvenue integration via backend
-            // Backend should:
-            // 1. Generate encrypted request using CCAvenue Merchant Key
-            // 2. Return encrypted data and access code
-            // 3. Frontend posts to: https://secure.ccavenue.com/transaction/transaction.do?command=initiateTransaction
-            
-            console.log('CCAvenue Payment Data:', {
-              orderId: orderId,
-              amount: totalAmount,
-              currency: 'INR',
-              merchantId: 'YOUR_CCAVENUE_MERCHANT_ID',
-              redirectUrl: `${window.location.origin}/dashboard-mfe/payment-success`,
-              cancelUrl: `${window.location.origin}/dashboard-mfe/payment-cancel`
-            });
-
-            // For demo: Simulate successful payment
-            alert('CCAvenue Integration: In production, this will redirect to CCAvenue.\n\nFor demo: Assuming payment successful!');
-            
-            // Simulate payment success
-            this.handleCCAvenueSuccess(orderId, response);
-          }
-        },
-        error: (error) => {
-          console.error('Error creating order:', error);
-          alert('Failed to create order. Please try again.');
-        }
-      });
-  }
-
-  handleCCAvenueSuccess(orderId: string, orderResponse: any): void {
-    console.log('Payment successful for order:', orderId);
-    
-    // Update order status to paid
-    this.http.put(`http://localhost:8002/api/cr-marketplace/orders/${orderId}/payment-success`, {
-      paymentStatus: 'SUCCESS',
-      orderStatus: 'CONFIRMED',
-      paidAt: new Date().toISOString()
-    }).subscribe({
-      next: (response) => {
-        console.log('Order status updated:', response);
-        alert(`Order placed successfully!\n\nOrder ID: ${orderId}\nTotal: ₹${this.getCRCartTotal()}\n\nYou will receive a confirmation SMS/Email.`);
-        
-        // Clear cart
-        this.crCart = [];
-        sessionStorage.removeItem('pending_cr_order');
-        
-        // Switch to orders view
-        this.switchCRView('orders');
-      },
-      error: (error) => {
-        console.error('Error updating order status:', error);
-      }
-    });
-  }
-
   // Seller Methods
   resetCRProductForm(): void {
     this.crProductForm = {
@@ -2316,6 +2210,385 @@ export class DashboardComponent implements OnInit, OnDestroy {
       minute: '2-digit',
       second: '2-digit'
     });
+  }
+
+  // File Upload Methods
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = true;
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = false;
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = false;
+    
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      this.processFile(files[0]);
+    }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.processFile(input.files[0]);
+    }
+  }
+
+  processFile(file: File): void {
+    if (!file.name.endsWith('.csv')) {
+      alert('Please select a CSV file');
+      return;
+    }
+    this.uploadedFile = file;
+    console.log('File selected for upload:', file.name);
+  }
+
+  submitBulkUpload(): void {
+    if (!this.uploadedFile) {
+      alert('No file selected');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', this.uploadedFile);
+    
+    console.log('Submitting bulk user upload for file:', this.uploadedFile.name);
+    
+    // Clear previous messages
+    this.uploadSuccessMessage = '';
+    this.uploadErrorMessage = '';
+    
+    this.http.post('http://localhost:8002/api/user/bulk-upload', formData)
+      .subscribe({
+        next: (response: any) => {
+          const successMessage = `✓ Bulk upload successful! ${response.successCount || 0} users created.`;
+          
+          if (response.failureCount > 0) {
+            const errorList = response.errors && response.errors.length > 0 
+              ? '\n\nErrors:\n' + response.errors.slice(0, 5).join('\n') 
+              : '';
+            alert(successMessage + (response.failureCount ? `\n\n⚠ ${response.failureCount} records failed.${errorList}` : ''));
+          } else {
+            alert(successMessage);
+          }
+          
+          this.uploadSuccessMessage = successMessage;
+          setTimeout(() => {
+            this.uploadSuccessMessage = '';
+          }, 4000);
+          
+          this.clearUpload();
+          
+          // Reload admin stats and user data after successful upload
+          this.loadAdminStats();
+        },
+        error: (error) => {
+          let errorMsg = 'Bulk upload failed. Please check the file format.';
+          
+          if (error.error?.message) {
+            errorMsg = error.error.message;
+          } else if (error.status === 404) {
+            errorMsg = 'Bulk upload endpoint not found. Backend service may not be running on port 8002.';
+          } else if (error.status === 400) {
+            errorMsg = 'Invalid CSV file format. Please check the file and try again.';
+          } else if (error.status === 0) {
+            errorMsg = 'Unable to connect to the server. Is the backend service running on port 8002?';
+          }
+          
+          this.uploadErrorMessage = '❌ ' + errorMsg;
+          alert('Bulk Upload Error\n\n' + errorMsg);
+          console.error('Bulk upload error:', error);
+          
+          setTimeout(() => {
+            this.uploadErrorMessage = '';
+          }, 5000);
+        }
+      });
+  }
+
+  clearUpload(): void {
+    this.uploadedFile = null;
+  }
+
+  // Payment File Upload Methods
+  onPaymentDragOver(event: DragEvent): void {
+    console.log('onPaymentDragOver');
+    event.preventDefault();
+    this.isPaymentDragging = true;
+  }
+
+  onPaymentDragLeave(event: DragEvent): void {
+    console.log('onPaymentDragLeave');
+    event.preventDefault();
+    this.isPaymentDragging = false;
+  }
+
+  onPaymentFileDrop(event: DragEvent): void {
+    console.log('onPaymentFileDrop called');
+    event.preventDefault();
+    this.isPaymentDragging = false;
+    
+    const files = event.dataTransfer?.files;
+    console.log('Files in drop event:', files?.length, files);
+    if (files && files.length > 0) {
+      this.processPaymentFile(files[0]);
+    }
+  }
+
+  onPaymentFileSelected(event: Event): void {
+    console.log('onPaymentFileSelected called');
+    const input = event.target as HTMLInputElement;
+    console.log('Input files:', input.files?.length, input.files);
+    if (input.files && input.files.length > 0) {
+      this.processPaymentFile(input.files[0]);
+    }
+  }
+
+  processPaymentFile(file: File): void {
+    console.log('processPaymentFile called with file:', file.name, 'size:', file.size, 'type:', file.type);
+    if (!file.name.endsWith('.csv')) {
+      console.error('File is not CSV:', file.name);
+      this.uploadErrorMessage = `❌ Please select a CSV file. Received: ${file.name}`;
+      this.clearMessages(3000);
+      return;
+    }
+    this.uploadedPaymentFile = file;
+    console.log('✓ Payment file stored in uploadedPaymentFile');
+    console.log('✓ Current uploadedPaymentFile:', this.uploadedPaymentFile?.name);
+    console.log('✓ File size:', this.uploadedPaymentFile?.size, 'bytes');
+    console.log('✓ upload-preview div should now be visible with Upload button');
+  }
+
+  submitPaymentUpload(): void {
+    console.log('========== BUTTON CLICKED - submitPaymentUpload() CALLED ==========');
+    console.log('uploadedPaymentFile:', this.uploadedPaymentFile);
+    
+    if (!this.uploadedPaymentFile) {
+      console.error('❌ No file selected!');
+      this.uploadErrorMessage = '❌ No file selected. Please select a CSV file first.';
+      this.clearMessages(3000);
+      return;
+    }
+
+    console.log('✓ Starting upload for:', this.uploadedPaymentFile.name);
+    this.isUploadingPayment = true;
+    this.uploadSuccessMessage = '';
+    this.uploadErrorMessage = '';
+
+    if (this.uploadedPaymentFile.size === 0) {
+      console.error('❌ Selected file is empty');
+      this.isUploadingPayment = false;
+      this.uploadErrorMessage = '❌ The selected CSV file is empty.';
+      this.clearMessages(5000);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', this.uploadedPaymentFile, this.uploadedPaymentFile.name);
+
+    console.log('✓ Uploading to http://localhost:8002/api/user/payments/bulk-upload');
+
+    this.http.post<any>('http://localhost:8002/api/user/payments/bulk-upload', formData)
+      .subscribe({
+        next: (response) => {
+          console.log('✓ Response:', response);
+          if (response?.success) {
+            this.uploadSuccessMessage = `✓ Successfully processed ${response.recordsProcessed || 0} payment records!`;
+            console.log('✓ SUCCESS:', this.uploadSuccessMessage);
+            this.clearPaymentUpload();
+            this.paymentNotificationService.notifyPaymentDataUpdated();
+            this.clearMessages(5000);
+          } else {
+            this.uploadErrorMessage = `❌ ${response?.message || 'Upload failed'}`;
+            console.error('❌ Failed:', this.uploadErrorMessage);
+            this.clearMessages(5000);
+          }
+        },
+        error: (error) => {
+          console.error('❌ ERROR:', error);
+          this.isUploadingPayment = false;
+          this.uploadErrorMessage = `❌ Error: ${error?.error?.message || error?.statusText || 'Unknown error'}`;
+          console.error('Status:', error?.status);
+          console.error('Message:', this.uploadErrorMessage);
+          this.clearMessages(5000);
+        }
+      });
+  }
+
+  clearMessages(delay: number = 0): void {
+    console.log('clearMessages called with delay:', delay);
+    if (delay > 0) {
+      setTimeout(() => {
+        console.log('Clearing messages after', delay, 'ms');
+        this.uploadSuccessMessage = '';
+        this.uploadErrorMessage = '';
+      }, delay);
+    } else {
+      this.uploadSuccessMessage = '';
+      this.uploadErrorMessage = '';
+    }
+  }
+
+  clearPaymentUpload(): void {
+    console.log('clearPaymentUpload called - resetting uploadedPaymentFile');
+    console.log('Before clear - uploadedPaymentFile:', this.uploadedPaymentFile?.name);
+    this.uploadedPaymentFile = null;
+    console.log('After clear - uploadedPaymentFile:', this.uploadedPaymentFile);
+  }
+
+  // Payment Reminder Properties
+  reminderDaysBefore: number = 0; // 0 = due today, negative = overdue
+  reminderSendEmail: boolean = true;
+  reminderSendSMS: boolean = false;
+  isSendingReminders: boolean = false;
+  reminderSuccessMessage: string = '';
+  reminderErrorMessage: string = '';
+  showPaymentReminderModal: boolean = false;
+
+  // Send Payment Reminders
+  openPaymentReminderModal(): void {
+    this.showPaymentReminderModal = true;
+    this.reminderDaysBefore = 0;
+    this.reminderSendEmail = true;
+    this.reminderSendSMS = false;
+    this.reminderSuccessMessage = '';
+    this.reminderErrorMessage = '';
+  }
+
+  closePaymentReminderModal(): void {
+    this.showPaymentReminderModal = false;
+    this.reminderSuccessMessage = '';
+    this.reminderErrorMessage = '';
+  }
+
+  sendPaymentReminders(): void {
+    if (this.isSendingReminders) {
+      return;
+    }
+
+    // Reset messages
+    this.reminderSuccessMessage = '';
+    this.reminderErrorMessage = '';
+
+    // Validate that at least one notification method is selected
+    if (!this.reminderSendEmail && !this.reminderSendSMS) {
+      this.reminderErrorMessage = 'Please select at least one notification method (Email or SMS)';
+      return;
+    }
+
+    this.isSendingReminders = true;
+
+    const params = {
+      societyName: this.adminUser?.societyName || this.user?.societyName,
+      daysBefore: this.reminderDaysBefore,
+      sendEmail: this.reminderSendEmail,
+      sendSMS: this.reminderSendSMS
+    };
+
+    console.log('Sending payment reminders with params:', params);
+
+    this.http.post('http://localhost:8002/api/user/payments/send-reminders', null, { params })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          console.log('Payment reminders response:', response);
+          this.isSendingReminders = false;
+
+          if (response.success) {
+            const emailsSent = response.emailsSent || 0;
+            const smsSent = response.smsSent || 0;
+            const uniqueUsers = response.uniqueUsers || 0;
+            
+            this.reminderSuccessMessage = `✅ Payment reminders sent successfully to ${uniqueUsers} user(s)`;
+            if (this.reminderSendEmail) {
+              this.reminderSuccessMessage += ` (${emailsSent} emails`;
+            }
+            if (this.reminderSendSMS) {
+              this.reminderSuccessMessage += `, ${smsSent} SMS`;
+            }
+            if (this.reminderSendEmail || this.reminderSendSMS) {
+              this.reminderSuccessMessage += ')';
+            }
+
+            // Auto-close modal after 3 seconds on success
+            setTimeout(() => {
+              this.closePaymentReminderModal();
+            }, 3000);
+          } else {
+            this.reminderErrorMessage = response.message || 'Failed to send payment reminders';
+          }
+        },
+        error: (error) => {
+          console.error('Error sending payment reminders:', error);
+          this.isSendingReminders = false;
+          this.reminderErrorMessage = 'Failed to send payment reminders: ' + (error.error?.message || error.message || 'Unknown error');
+        }
+      });
+  }
+
+  downloadPaymentTemplate(): void {
+    // Create CSV header and example data
+    const headers = ['towerNumber', 'flatNumber', 'quarterName', 'quarterPeriod', 'amount', 'dueDate', 'status'];
+    const extraHeaders = ['parkingFee', 'waterCharges'];
+    const exampleRow = ['3', '101', 'Q1 2024', 'Jan - Mar', '15000', '2024-03-31', 'pending', '500', '300'];
+    const exampleRow2 = ['3', '102', 'Q1 2024', 'Jan - Mar', '15000', '2024-03-31', 'paid', '0', '250'];
+    const exampleRow3 = ['4', '201', 'Q1 2024', 'Jan - Mar', '15000', '2024-03-31', 'pending', '400', '350'];
+
+    // Combine into CSV format
+    const csvContent = [
+      headers.concat(extraHeaders).join(','),
+      exampleRow.join(','),
+      exampleRow2.join(','),
+      exampleRow3.join(','),
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'payment_template.csv');
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  downloadBulkTemplate(): void {
+    // Create CSV header and example data for bulk user upload
+    const headers = ['societyName', 'username', 'email', 'phoneNumber', 'address', 'userType', 'ownerType', 'towerNumber', 'flatNumber', 'password'];
+    const exampleRow = ['Green Heights', 'john.doe', 'john@example.com', '9876543210', 'Flat 101 Tower A', 'owner', 'resident', 'A', '101', 'Pass@123'];
+    const exampleRow2 = ['Green Heights', 'jane.smith', 'jane@example.com', '9876543211', 'Flat 202 Tower B', 'tenant', '', 'B', '202', 'Pass@456'];
+    const exampleRow3 = ['Sky Towers', 'mike.johnson', 'mike@example.com', '9876543212', 'Flat 305 Tower C', 'owner', 'nonResident', 'C', '305', 'Pass@789'];
+
+    // Combine into CSV format
+    const csvContent = [
+      headers.join(','),
+      exampleRow.join(','),
+      exampleRow2.join(','),
+      exampleRow3.join(','),
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'bulk_user_template.csv');
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   // Admin User Management Methods
