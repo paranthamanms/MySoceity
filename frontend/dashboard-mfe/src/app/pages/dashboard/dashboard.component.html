@@ -137,15 +137,7 @@
         <span class="tab-icon">📋</span>
         <span class="tab-label">Audit Logs</span>
       </button>
-      <button class="tab-button" (click)="selectAdminTab('bulk-upload')" [class.active]="adminPanelTab === 'bulk-upload'">
-        <span class="tab-icon">📤</span>
-        <span class="tab-label">Bulk User Upload</span>
-      </button>
       <!-- Payment & Maintenance - Society Admin Only -->
-      <button class="tab-button" (click)="selectAdminTab('payments')" [class.active]="adminPanelTab === 'payments'" *ngIf="isSocietyAdmin()">
-        <span class="tab-icon">💳</span>
-        <span class="tab-label">Payment Management</span>
-      </button>
       <button class="tab-button" (click)="selectAdminTab('maintenance')" [class.active]="adminPanelTab === 'maintenance'" *ngIf="isSocietyAdmin()">
         <span class="tab-icon">🏢</span>
         <span class="tab-label">Maintenance Payment</span>
@@ -511,220 +503,6 @@
           <app-audit-logs></app-audit-logs>
         </div>
 
-        <!-- Bulk Upload Tab -->
-        <div class="admin-tab-content" *ngIf="adminPanelTab === 'bulk-upload'">
-          <div class="bulk-upload-section">
-            <h2>Bulk User Upload</h2>
-            <p class="section-description">Upload multiple users at once using a CSV file</p>
-
-            <!-- Success/Error Messages -->
-            <div class="message-container">
-              <div class="success-message" *ngIf="uploadSuccessMessage">
-                <span class="icon">✓</span>
-                {{ uploadSuccessMessage }}
-              </div>
-              <div class="error-message" *ngIf="uploadErrorMessage">
-                <span class="icon">✕</span>
-                {{ uploadErrorMessage }}
-              </div>
-            </div>
-
-            <div class="upload-area">
-              <div class="upload-box" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onFileDrop($event)" [class.dragging]="isDragging">
-                <div class="upload-icon">📁</div>
-                <h3>Drop CSV file here</h3>
-                <p>or</p>
-                <label class="upload-btn">
-                  Select File
-                  <input type="file" hidden (change)="onFileSelected($event)" accept=".csv">
-                </label>
-                <p class="upload-info">Supported format: CSV (comma-separated values)</p>
-                <div class="upload-quick-actions">
-                  <button class="upload-submit-btn" (click)="submitBulkUpload()" [disabled]="!uploadedFile">
-                    📤 Upload Bulk User Data
-                  </button>
-                  <span class="selected-file" *ngIf="uploadedFile">Selected: {{ uploadedFile.name }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="template-section">
-              <h3>CSV Template</h3>
-              <p>Download template and fill in user details:</p>
-              <button class="download-template-btn" (click)="downloadBulkTemplate()">📥 Download Template</button>
-              <div class="template-preview">
-                <code>societyName,username,email,phoneNumber,address,userType,ownerType,towerNumber,flatNumber,password</code>
-              </div>
-              <p class="template-hint">
-                Example: <code>NammaSociety,john.doe,john@example.com,9876543210,Flat 101 Tower A,owner,resident,A,101,Pass@123</code>
-              </p>
-              <p class="template-hint">
-                <strong>Note:</strong> Email and phone numbers will be used for payment reminders and announcements
-              </p>
-            </div>
-
-            <div class="upload-preview" *ngIf="uploadedFile">
-              <h3>File Ready: {{ uploadedFile.name }}</h3>
-              <button class="cancel-btn" (click)="clearUpload()">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Payment Management Tab -->
-        <div class="admin-tab-content" *ngIf="adminPanelTab === 'payments'">
-          <div class="payment-management-section">
-            <h2>Payment Management</h2>
-            <p class="section-description">Bulk upload maintenance payment details for all apartments</p>
-
-            <!-- Success/Error Messages -->
-            <div class="message-container">
-              <div class="success-message" *ngIf="uploadSuccessMessage">
-                <span class="message-icon">✓</span>
-                <span class="message-text">{{ uploadSuccessMessage }}</span>
-              </div>
-              <div class="error-message" *ngIf="uploadErrorMessage">
-                <span class="message-icon">✕</span>
-                <span class="message-text">{{ uploadErrorMessage }}</span>
-              </div>
-            </div>
-
-            <div class="upload-area">
-              <div class="upload-box" 
-                (dragover)="onPaymentDragOver($event)" 
-                (dragleave)="onPaymentDragLeave($event)" 
-                (drop)="onPaymentFileDrop($event)" 
-                [class.dragging]="isPaymentDragging">
-                <div class="upload-icon">💳</div>
-                <h3>Drop Payment CSV file here</h3>
-                <p>or</p>
-                <label class="upload-btn">
-                  Select File
-                  <input type="file" hidden (change)="onPaymentFileSelected($event)" accept=".csv">
-                </label>
-                <p class="upload-info">Supported format: CSV (comma-separated values)</p>
-                <div class="upload-quick-actions">
-                  <button class="upload-submit-btn" (click)="submitPaymentUpload()" [disabled]="isUploadingPayment">
-                    <span *ngIf="!isUploadingPayment">💾 Upload Payment Data</span>
-                    <span *ngIf="isUploadingPayment">⏳ Uploading...</span>
-                  </button>
-                  <span class="selected-file" *ngIf="uploadedPaymentFile">Selected: {{ uploadedPaymentFile.name }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="template-section">
-              <h3>Payment CSV Template</h3>
-              <p>Download template and fill in payment details for each apartment:</p>
-              <button class="download-template-btn" (click)="downloadPaymentTemplate()">📥 Download Payment Template</button>
-              <div class="template-preview">
-                <code>towerNumber,flatNumber,quarterName,quarterPeriod,amount,dueDate,status,parkingFee,waterCharges</code>
-              </div>
-              <p class="template-hint">
-                Example: <code>3,B12,Q1 2024,Jan - Mar,15000,2024-03-31,paid</code>
-              </p>
-              <p class="template-hint">
-                Status values: <strong>paid</strong> or <strong>pending</strong>
-              </p>
-            </div>
-
-            <div class="upload-preview" *ngIf="uploadedPaymentFile">
-              <h3>File Ready: {{ uploadedPaymentFile.name }}</h3>
-              <p class="file-size">Size: {{ (uploadedPaymentFile.size / 1024).toFixed(2) }} KB</p>
-              <button class="upload-submit-btn" (click)="submitPaymentUpload()" [disabled]="isUploadingPayment">
-                <span *ngIf="!isUploadingPayment">💾 Upload Payment Data</span>
-                <span *ngIf="isUploadingPayment">⏳ Uploading...</span>
-              </button>
-              <button class="cancel-btn" (click)="clearPaymentUpload()" [disabled]="isUploadingPayment">Cancel</button>
-            </div>
-
-            <div class="payment-instructions">
-              <h3>Instructions</h3>
-              <ul>
-                <li>Upload a CSV file containing payment details for all apartments</li>
-                <li>The file must include columns: towerNumber, flatNumber, quarterName, quarterPeriod, amount, dueDate, status</li>
-                <li>You can add extra columns for additional charges (e.g., parkingFee, waterCharges)</li>
-                <li>Additional charge values will be stored and included in totals</li>
-                <li>Payment data will be linked to residents based on tower and flat number</li>
-                <li>Residents will see their payment details in the Maintenance Payment section</li>
-                <li>You can upload multiple times - new data will update existing records</li>
-              </ul>
-            </div>
-
-            <!-- Payment Reminders Section -->
-            <div class="payment-reminders-section">
-              <h3>📧 Send Payment Reminders</h3>
-              <p class="section-description">Send email and SMS reminders to residents with pending payments</p>
-              <button class="reminder-btn" (click)="openPaymentReminderModal()">
-                📨 Send Payment Reminders
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Payment Reminder Modal -->
-        <div class="modal-overlay" *ngIf="showPaymentReminderModal" (click)="closePaymentReminderModal()">
-          <div class="modal-content payment-reminder-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h3>📧 Send Payment Reminders</h3>
-              <button class="close-modal" (click)="closePaymentReminderModal()">×</button>
-            </div>
-
-            <div class="modal-body">
-              <div class="reminder-form">
-                <div class="form-group">
-                  <label>Reminder Type:</label>
-                  <select [(ngModel)]="reminderDaysBefore" class="reminder-select">
-                    <option [value]="-7">Overdue (1 week)</option>
-                    <option [value]="-3">Overdue (3 days)</option>
-                    <option [value]="-1">Overdue (1 day)</option>
-                    <option [value]="0" selected>Due Today</option>
-                    <option [value]="3">Due in 3 days</option>
-                    <option [value]="7">Due in 7 days</option>
-                    <option [value]="14">Due in 14 days</option>
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" [(ngModel)]="reminderSendEmail" />
-                    <span>📧 Send Email Notifications</span>
-                  </label>
-                </div>
-
-                <div class="form-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" [(ngModel)]="reminderSendSMS" />
-                    <span>📱 Send SMS Notifications</span>
-                  </label>
-                </div>
-
-                <div class="reminder-info">
-                  <p><strong>Note:</strong> Reminders will be sent to all residents with pending payments that match the selected criteria.</p>
-                  <p>Email addresses and phone numbers from the user profiles will be used.</p>
-                </div>
-
-                <div class="success-message" *ngIf="reminderSuccessMessage">
-                  <span class="message-icon">✓</span>
-                  <span class="message-text">{{ reminderSuccessMessage }}</span>
-                </div>
-
-                <div class="error-message" *ngIf="reminderErrorMessage">
-                  <span class="message-icon">✕</span>
-                  <span class="message-text">{{ reminderErrorMessage }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="modal-footer">
-              <button class="cancel-btn" (click)="closePaymentReminderModal()" [disabled]="isSendingReminders">Cancel</button>
-              <button class="submit-btn" (click)="sendPaymentReminders()" [disabled]="isSendingReminders">
-                <span *ngIf="!isSendingReminders">📨 Send Reminders</span>
-                <span *ngIf="isSendingReminders">⏳ Sending...</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
         <!-- Maintenance Payment Tab -->
         <div class="admin-tab-content" *ngIf="adminPanelTab === 'maintenance'">
           <div class="maintenance-payment-section">
@@ -829,8 +607,7 @@
                 <div class="icon">📊</div>
                 <h3>No Payment Records Found</h3>
                 <p *ngIf="maintenancePayments.length === 0">
-                  No payment data has been uploaded for this society yet.<br>
-                  Please use the <strong>Payment Management</strong> tab above to upload payment data via CSV.
+                  No maintenance payment records are available for this society yet. Please contact your administrator.
                 </p>
                 <p *ngIf="maintenancePayments.length > 0 && filterTower">
                   No payment records found for <strong>Tower {{ filterTower }}</strong>.<br>
@@ -904,14 +681,6 @@
                   <div class="permission-item">
                     <input type="checkbox" id="perm-users" checked disabled class="permission-check">
                     <label for="perm-users">✓ Create/Manage Users <span *ngIf="newAdminUserType === 'admin'">(for assigned society only)</span></label>
-                  </div>
-                  <div class="permission-item">
-                    <input type="checkbox" id="perm-bulk" checked disabled class="permission-check">
-                    <label for="perm-bulk">✓ Bulk User Upload <span *ngIf="newAdminUserType === 'admin'">(for assigned society only)</span></label>
-                  </div>
-                  <div class="permission-item">
-                    <input type="checkbox" id="perm-payments" checked disabled class="permission-check">
-                    <label for="perm-payments">✓ Payment Management <span *ngIf="newAdminUserType === 'admin'">(for assigned society only)</span></label>
                   </div>
                   <div class="permission-item">
                     <input type="checkbox" id="perm-maintenance" checked disabled class="permission-check">

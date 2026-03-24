@@ -1,7 +1,6 @@
-import { Component, OnInit, NgZone } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { PaymentNotificationService } from '../../services/payment-notification.service';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -12,15 +11,6 @@ export class AdminDashboardComponent implements OnInit {
 
   activeTab: string = 'overview';
   adminUser: any = null;
-  isDragging: boolean = false;
-  uploadedFile: File | null = null;
-  
-  // Payment Upload
-  isPaymentDragging: boolean = false;
-  uploadedPaymentFile: File | null = null;
-  uploadSuccessMessage: string = '';
-  uploadErrorMessage: string = '';
-  isUploadingPayment: boolean = false;
 
   // Overview Stats
   totalUsers: number = 0;
@@ -52,9 +42,7 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private http: HttpClient,
-    private paymentNotificationService: PaymentNotificationService,
-    private ngZone: NgZone
+    private http: HttpClient
   ) { }
 
   ngOnInit(): void {
@@ -67,10 +55,6 @@ export class AdminDashboardComponent implements OnInit {
     this.loadAuditConfig();
     this.loadAdminStats();
     this.loadMaintenancePayments();
-    // Subscribe to payment updates
-    this.paymentNotificationService.paymentDataUpdated$.subscribe(() => {
-      this.loadMaintenancePayments();
-    });
 
     this.route.queryParamMap.subscribe((params) => {
       const tab = params.get('tab');
@@ -335,277 +319,6 @@ export class AdminDashboardComponent implements OnInit {
       minute: '2-digit',
       second: '2-digit'
     });
-  }
-
-  // File Upload Methods
-  onDragOver(event: DragEvent): void {
-    event.preventDefault();
-    this.isDragging = true;
-  }
-
-  onDragLeave(event: DragEvent): void {
-    event.preventDefault();
-    this.isDragging = false;
-  }
-
-  onFileDrop(event: DragEvent): void {
-    event.preventDefault();
-    this.isDragging = false;
-    
-    const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
-      this.processFile(files[0]);
-    }
-  }
-
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.processFile(input.files[0]);
-    }
-  }
-
-  processFile(file: File): void {
-    if (!file.name.endsWith('.csv')) {
-      alert('Please select a CSV file');
-      return;
-    }
-    this.uploadedFile = file;
-    console.log('File selected for upload:', file.name);
-  }
-
-  submitBulkUpload(): void {
-    if (!this.uploadedFile) {
-      alert('No file selected');
-      return;
-    }
-    
-    const formData = new FormData();
-    formData.append('file', this.uploadedFile);
-    
-    console.log('Submitting bulk user upload for file:', this.uploadedFile.name);
-    
-    // Clear previous messages
-    this.uploadSuccessMessage = '';
-    this.uploadErrorMessage = '';
-    
-    this.http.post('http://localhost:8002/api/user/bulk-upload', formData)
-      .subscribe({
-        next: (response: any) => {
-          const successMessage = `✓ Bulk upload successful! ${response.successCount || 0} users created.`;
-          
-          if (response.failureCount > 0) {
-            const errorList = response.errors && response.errors.length > 0 
-              ? '\n\nErrors:\n' + response.errors.slice(0, 5).join('\n') 
-              : '';
-            alert(successMessage + (response.failureCount ? `\n\n⚠ ${response.failureCount} records failed.${errorList}` : ''));
-          } else {
-            alert(successMessage);
-          }
-          
-          this.uploadSuccessMessage = successMessage;
-          setTimeout(() => {
-            this.uploadSuccessMessage = '';
-          }, 4000);
-          
-          this.clearUpload();
-          
-          // Reload admin stats and switch to users tab to show updated data
-          this.loadAdminStats();
-          
-          // Automatically switch to the Users tab so the user can see the newly uploaded users
-          setTimeout(() => {
-            this.selectTab('users');
-          }, 1500);
-        },
-        error: (error) => {
-          let errorMsg = 'Bulk upload failed. Please check the file format.';
-          
-          if (error.error?.message) {
-            errorMsg = error.error.message;
-          } else if (error.status === 404) {
-            errorMsg = 'Bulk upload endpoint not found. Backend service may not be running on port 8002.';
-          } else if (error.status === 400) {
-            errorMsg = 'Invalid CSV file format. Please check the file and try again.';
-          } else if (error.status === 0) {
-            errorMsg = 'Unable to connect to the server. Is the backend service running on port 8002?';
-          }
-          
-          this.uploadErrorMessage = '❌ ' + errorMsg;
-          alert('Bulk Upload Error\n\n' + errorMsg);
-          console.error('Bulk upload error:', error);
-          
-          setTimeout(() => {
-            this.uploadErrorMessage = '';
-          }, 5000);
-        }
-      });
-  }
-
-  clearUpload(): void {
-    this.uploadedFile = null;
-  }
-
-  // Payment File Upload Methods
-  onPaymentDragOver(event: DragEvent): void {
-    console.log('onPaymentDragOver');
-    event.preventDefault();
-    this.isPaymentDragging = true;
-  }
-
-  onPaymentDragLeave(event: DragEvent): void {
-    console.log('onPaymentDragLeave');
-    event.preventDefault();
-    this.isPaymentDragging = false;
-  }
-
-  onPaymentFileDrop(event: DragEvent): void {
-    console.log('onPaymentFileDrop called');
-    event.preventDefault();
-    this.isPaymentDragging = false;
-    
-    const files = event.dataTransfer?.files;
-    console.log('Files in drop event:', files?.length, files);
-    if (files && files.length > 0) {
-      this.processPaymentFile(files[0]);
-    }
-  }
-
-  onPaymentFileSelected(event: Event): void {
-    console.log('onPaymentFileSelected called');
-    const input = event.target as HTMLInputElement;
-    console.log('Input files:', input.files?.length, input.files);
-    if (input.files && input.files.length > 0) {
-      this.processPaymentFile(input.files[0]);
-    }
-  }
-
-  processPaymentFile(file: File): void {
-    console.log('processPaymentFile called with file:', file.name, 'size:', file.size, 'type:', file.type);
-    if (!file.name.endsWith('.csv')) {
-      console.error('File is not CSV:', file.name);
-      this.uploadErrorMessage = `❌ Please select a CSV file. Received: ${file.name}`;
-      this.clearMessages(3000);
-      return;
-    }
-    this.uploadedPaymentFile = file;
-    console.log('✓ Payment file stored in uploadedPaymentFile');
-    console.log('✓ Current uploadedPaymentFile:', this.uploadedPaymentFile?.name);
-    console.log('✓ File size:', this.uploadedPaymentFile?.size, 'bytes');
-    console.log('✓ upload-preview div should now be visible with Upload button');
-  }
-
-  submitPaymentUpload(): void {
-    console.log('========== BUTTON CLICKED - submitPaymentUpload() CALLED ==========');
-    console.log('uploadedPaymentFile:', this.uploadedPaymentFile);
-    
-    if (!this.uploadedPaymentFile) {
-      console.error('❌ No file selected!');
-      this.uploadErrorMessage = '❌ No file selected. Please select a CSV file first.';
-      this.clearMessages(3000);
-      return;
-    }
-
-    console.log('✓ Starting upload for:', this.uploadedPaymentFile.name);
-    this.isUploadingPayment = true;
-    this.uploadSuccessMessage = '';
-    this.uploadErrorMessage = '';
-
-    if (this.uploadedPaymentFile.size === 0) {
-      console.error('❌ Selected file is empty');
-      this.isUploadingPayment = false;
-      this.uploadErrorMessage = '❌ The selected CSV file is empty.';
-      this.clearMessages(5000);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', this.uploadedPaymentFile, this.uploadedPaymentFile.name);
-
-    console.log('✓ Uploading to http://localhost:8002/api/user/payments/bulk-upload');
-
-    this.http.post<any>('http://localhost:8002/api/user/payments/bulk-upload', formData)
-      .subscribe({
-        next: (response) => {
-          console.log('✓ Response:', response);
-          this.ngZone.run(() => {
-            this.isUploadingPayment = false;
-            
-            if (response?.success) {
-              this.uploadSuccessMessage = `✓ Successfully processed ${response.recordsProcessed || 0} payment records!`;
-              console.log('✓ SUCCESS:', this.uploadSuccessMessage);
-              this.clearPaymentUpload();
-              this.paymentNotificationService.notifyPaymentDataUpdated();
-              this.clearMessages(5000);
-            } else {
-              this.uploadErrorMessage = `❌ ${response?.message || 'Upload failed'}`;
-              console.error('❌ Failed:', this.uploadErrorMessage);
-              this.clearMessages(5000);
-            }
-          });
-        },
-        error: (error) => {
-          console.error('❌ ERROR:', error);
-          this.ngZone.run(() => {
-            this.isUploadingPayment = false;
-            this.uploadErrorMessage = `❌ Error: ${error?.error?.message || error?.statusText || 'Unknown error'}`;
-            console.error('Status:', error?.status);
-            console.error('Message:', this.uploadErrorMessage);
-            this.clearMessages(5000);
-          });
-        }
-      });
-  }
-
-  clearMessages(delay: number = 0): void {
-    console.log('clearMessages called with delay:', delay);
-    if (delay > 0) {
-      setTimeout(() => {
-        console.log('Clearing messages after', delay, 'ms');
-        this.uploadSuccessMessage = '';
-        this.uploadErrorMessage = '';
-      }, delay);
-    } else {
-      this.uploadSuccessMessage = '';
-      this.uploadErrorMessage = '';
-    }
-  }
-
-  clearPaymentUpload(): void {
-    console.log('clearPaymentUpload called - resetting uploadedPaymentFile');
-    console.log('Before clear - uploadedPaymentFile:', this.uploadedPaymentFile?.name);
-    this.uploadedPaymentFile = null;
-    console.log('After clear - uploadedPaymentFile:', this.uploadedPaymentFile);
-  }
-
-  downloadPaymentTemplate(): void {
-    // Create CSV header and example data
-    const headers = ['towerNumber', 'flatNumber', 'quarterName', 'quarterPeriod', 'amount', 'dueDate', 'status'];
-    const extraHeaders = ['parkingFee', 'waterCharges'];
-    const exampleRow = ['3', '101', 'Q1 2024', 'Jan - Mar', '15000', '2024-03-31', 'pending', '500', '300'];
-    const exampleRow2 = ['3', '102', 'Q1 2024', 'Jan - Mar', '15000', '2024-03-31', 'paid', '0', '250'];
-    const exampleRow3 = ['4', '201', 'Q1 2024', 'Jan - Mar', '15000', '2024-03-31', 'pending', '400', '350'];
-
-    // Combine into CSV format
-    const csvContent = [
-      headers.concat(extraHeaders).join(','),
-      exampleRow.join(','),
-      exampleRow2.join(','),
-      exampleRow3.join(','),
-    ].join('\n');
-
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'payment_template.csv');
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   }
 
   logout(): void {
