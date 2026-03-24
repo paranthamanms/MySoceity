@@ -2,7 +2,19 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
 interface SellerProduct {
-  id: string;
+  id: number;
+  productName: string;
+  description: string;
+  price: number;
+  category: string;
+  stock: number;
+  image: string;
+  seller: string;
+  sellerId: string;
+  status: string;
+}
+
+interface NewProductForm {
   name: string;
   description: string;
   price: number;
@@ -17,6 +29,8 @@ interface SellerProduct {
   styleUrls: ['./seller-portal.component.scss']
 })
 export class SellerPortalComponent implements OnInit {
+
+  private readonly API = 'http://localhost:8002/api/cr-marketplace';
 
   activeView: string = 'login'; // 'login', 'register', 'dashboard', 'addProduct'
   
@@ -35,8 +49,7 @@ export class SellerPortalComponent implements OnInit {
   products: SellerProduct[] = [];
   
   // New Product Form
-  newProduct: SellerProduct = {
-    id: '',
+  newProduct: NewProductForm = {
     name: '',
     description: '',
     price: 0,
@@ -84,7 +97,7 @@ export class SellerPortalComponent implements OnInit {
     // For now, mock login
     this.loggedInSeller = {
       sellerId: this.sellerId,
-      sellerName: 'Test Seller',
+      sellerName: this.sellerId,
       email: 'seller@example.com'
     };
     
@@ -111,15 +124,28 @@ export class SellerPortalComponent implements OnInit {
       email: this.email,
       phone: this.phone
     };
+
+    localStorage.setItem('registered_seller', JSON.stringify(newSeller));
     
     alert('Registration successful! You can now login.');
     this.activeView = 'login';
   }
 
   loadProducts(): void {
-    // TODO: Load seller's products from backend
-    // For now, using mock data
-    this.products = [];
+    if (!this.loggedInSeller?.sellerId) {
+      this.products = [];
+      return;
+    }
+
+    this.http.get<SellerProduct[]>(`${this.API}/products?sellerId=${encodeURIComponent(this.loggedInSeller.sellerId)}`).subscribe(
+      (res) => {
+        this.products = res || [];
+      },
+      () => {
+        this.products = [];
+        alert('Unable to load products from server.');
+      }
+    );
   }
 
   addProduct(): void {
@@ -127,34 +153,60 @@ export class SellerPortalComponent implements OnInit {
       alert('Please fill required fields: Name, Price, and Stock');
       return;
     }
-    
-    // Generate product ID
-    this.newProduct.id = 'P' + Date.now();
-    
-    // TODO: Save product to backend
-    this.products.push({ ...this.newProduct });
-    
-    alert('Product added successfully!');
-    
-    // Reset form
-    this.newProduct = {
-      id: '',
-      name: '',
-      description: '',
-      price: 0,
-      category: 'electronics',
-      stock: 0,
-      imageUrl: ''
+
+    if (!this.loggedInSeller?.sellerId) {
+      alert('Please login as seller first.');
+      return;
+    }
+
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+
+    const payload = {
+      productName: this.newProduct.name,
+      description: this.newProduct.description,
+      price: Number(this.newProduct.price),
+      category: this.newProduct.category,
+      stock: Number(this.newProduct.stock),
+      image: this.newProduct.imageUrl,
+      unit: '1 unit',
+      sellerId: this.loggedInSeller.sellerId,
+      seller: this.loggedInSeller.sellerName || this.loggedInSeller.sellerId,
+      societyName: user?.societyName || '',
+      status: this.newProduct.stock > 0 ? 'ACTIVE' : 'OUT_OF_STOCK'
     };
-    
-    this.activeView = 'dashboard';
+
+    this.http.post<SellerProduct>(`${this.API}/products`, payload).subscribe(
+      () => {
+        alert('Product added successfully!');
+        this.newProduct = {
+          name: '',
+          description: '',
+          price: 0,
+          category: 'electronics',
+          stock: 0,
+          imageUrl: ''
+        };
+        this.activeView = 'dashboard';
+        this.loadProducts();
+      },
+      () => {
+        alert('Failed to add product. Please try again.');
+      }
+    );
   }
 
-  deleteProduct(productId: string): void {
+  deleteProduct(productId: number): void {
     if (confirm('Are you sure you want to delete this product?')) {
-      this.products = this.products.filter(p => p.id !== productId);
-      // TODO: Delete from backend
-      alert('Product deleted successfully!');
+      this.http.delete(`${this.API}/products/${productId}`).subscribe(
+        () => {
+          this.products = this.products.filter(p => p.id !== productId);
+          alert('Product deleted successfully!');
+        },
+        () => {
+          alert('Failed to delete product. Please try again.');
+        }
+      );
     }
   }
 

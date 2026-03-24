@@ -8,6 +8,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
+import java.time.LocalDateTime;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/cr-marketplace")
@@ -214,5 +222,137 @@ public class CRMarketplaceController {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
-}
 
+    // ---------------------------------------------------------------
+    // SEARCH & BULK UPLOAD
+    // ---------------------------------------------------------------
+
+    /**
+     * Search products by keyword (name, description, category, seller)
+     * Supports sessionStorage caching on the frontend.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<CRProduct>> searchProducts(@RequestParam String q) {
+        try {
+            List<CRProduct> results = crProductService.searchProducts(q);
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Collections.emptyList());
+        }
+    }
+
+    /**
+     * Bulk upload products via Excel (.xlsx) or CSV file.
+     * Expected columns: Product Name, Category, Price, Unit, Description, Stock, Image URL
+     */
+    @PostMapping("/products/bulk-upload")
+    public ResponseEntity<?> bulkUpload(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("sellerId") String sellerId,
+            @RequestParam("sellerName") String sellerName,
+            @RequestParam(value = "societyName", required = false, defaultValue = "") String societyName) {
+        try {
+            List<CRProduct> products = new ArrayList<>();
+            String filename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+
+            if (filename.endsWith(".xlsx") || filename.endsWith(".xls")) {
+                // Parse Excel with Apache POI
+                Workbook workbook = WorkbookFactory.create(file.getInputStream());
+                Sheet sheet = workbook.getSheetAt(0);
+                boolean firstRow = true;
+                for (Row row : sheet) {
+                    if (firstRow) { firstRow = false; continue; } // skip header
+                    String name = getCellString(row, 0);
+                    if (name == null || name.isBlank()) continue;
+                    CRProduct p = buildProduct(name,
+                        getCellString(row, 1), getCellDouble(row, 2),
+                        getCellString(row, 3), getCellString(row, 4),
+                        getCellInt(row, 5), getCellString(row, 6),
+                        sellerId, sellerName, societyName);
+                    products.add(p);
+                }
+                workbook.close();
+            } else {
+                // Parse CSV
+                BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));
+                boolean firstLine = true;
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (firstLine) { firstLine = false; continue; }
+                    String[] cols = line.split(",", -1);
+                    if (cols.length < 1 || cols[0].isBlank()) continue;
+                    String name = cols[0].trim().replaceAll("^\"|\"$", "");
+                    if (name.isBlank()) continue;
+                    String category = cols.length > 1 ? cols[1].trim().replaceAll("^\"|\"$", "") : "others";
+                    double price = cols.length > 2 ? parseDoubleOrZero(cols[2].trim().replaceAll("^\"|\"$", "")) : 0;
+                    String unit = cols.length > 3 ? cols[3].trim().replaceAll("^\"|\"$", "") : "";
+                    String desc = cols.length > 4 ? cols[4].trim().replaceAll("^\"|\"$", "") : "";
+                    int stock = cols.length > 5 ? parseIntOrZero(cols[5].trim().replaceAll("^\"|\"$", "")) : 0;
+                    String imageUrl = cols.length > 6 ? cols[6].trim().replaceAll("^\"|\"$", "") : "";
+                    products.add(buildProduct(name, category, price, unit, desc, stock, imageUrl, sellerId, sellerName, societyName));
+                }
+                reader.close();
+            }
+
+            if (products.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "No valid product rows found in file. Check the template format."));
+            }
+
+            List<CRProduct> saved = crProductService.bulkCreateProducts(products);
+            return ResponseEntity.ok(Map.of("count", saved.size(), "message", "Uploaded " + saved.size() + " products successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Upload failed: " + e.getMessage()));
+        }
+    }
+
+    private CRProduct buildProduct(String name, String category, double price,
+            String unit, String description, int stock, String imageUrl,
+            String sellerId, String sellerName, String societyName) {
+        CRProduct p = new CRProduct();
+        p.setProductName(name);
+        p.setCategory(category != null && !category.isBlank() ? category : "others");
+        p.setPrice(price);
+        p.setUnit(unit);
+        p.setDescription(description);
+        p.setStock(stock);
+        p.setImage(imageUrl);
+        p.setSellerId(sellerId);
+        p.setSeller(sellerName);
+        p.setSocietyName(societyName);
+        p.setStatus(stock > 0 ? "ACTIVE" : "OUT_OF_STOCK");
+        return p;
+    }
+
+    private String getCellString(Row row, int col) {
+        if (row == null || col >= row.getLastCellNum()) return "";
+        Cell cell = row.getCell(col);
+        if (cell == null) return "";
+        cell.setCellType(CellType.STRING);
+        return cell.getStringCellValue().trim();
+    }
+
+    private double getCellDouble(Row row, int col) {
+        if (row == null || col >= row.getLastCellNum()) return 0;
+        Cell cell = row.getCell(col);
+        if (cell == null) return 0;
+        try {
+            if (cell.getCellType() == CellType.NUMERIC) return cell.getNumericCellValue();
+            cell.setCellType(CellType.STRING);
+            return parseDoubleOrZero(cell.getStringCellValue().trim());
+        } catch (Exception e) { return 0; }
+    }
+
+    private int getCellInt(Row row, int col) {
+        return (int) getCellDouble(row, col);
+    }
+
+    private double parseDoubleOrZero(String s) {
+        try { return Double.parseDouble(s.replaceAll("[^\\d.]", "")); } catch (Exception e) { return 0; }
+    }
+
+    private int parseIntOrZero(String s) {
+        try { return Integer.parseInt(s.replaceAll("[^\\d]", "")); } catch (Exception e) { return 0; }
+    }
+
+}

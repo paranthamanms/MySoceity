@@ -71,9 +71,9 @@
         <h3>Your Products</h3>
         <div class="product-grid">
           <div *ngFor="let product of products" class="product-item">
-            <img [src]="product.imageUrl || 'assets/images/product-placeholder.png'" [alt]="product.name">
+            <img [src]="product.image || 'assets/images/product-placeholder.png'" [alt]="product.productName">
             <div class="product-details">
-              <h4>{{ product.name }}</h4>
+              <h4>{{ product.productName }}</h4>
               <p>{{ product.description }}</p>
               <p class="product-price">₹{{ product.price }}</p>
               <p class="product-stock">Stock: {{ product.stock }}</p>

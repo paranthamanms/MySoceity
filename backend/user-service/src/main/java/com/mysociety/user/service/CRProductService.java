@@ -71,5 +71,16 @@ public class CRProductService {
         }
         return crProductRepository.save(product);
     }
+
+        public List<CRProduct> searchProducts(String query) {
+            if (query == null || query.trim().isEmpty()) {
+                return getActiveProducts();
+            }
+            return crProductRepository.searchProducts(query.trim());
+        }
+
+        public List<CRProduct> bulkCreateProducts(List<CRProduct> products) {
+            return crProductRepository.saveAll(products);
+        }
 }
 

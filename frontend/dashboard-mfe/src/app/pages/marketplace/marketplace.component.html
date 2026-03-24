@@ -1,196 +1,357 @@
-<div class="marketplace-container">
-  <!-- Marketplace Header -->
-  <header class="marketplace-header">
-    <div class="header-content">
-      <div class="header-left">
-        <div class="logo-section">
-          <img src="assets/images/logo.svg" alt="NammaSociety Logo" class="logo-image">
-          <span class="logo-text">NammaSociety</span>
+<div class="amp-marketplace">
+  <div class="loc-overlay" *ngIf="showLocationPopup" (click)="closeLocationPopup()">
+    <div class="loc-popup" (click)="$event.stopPropagation()">
+      <div class="loc-popup-header">
+        <h3>{{ t.chooseLocation }}</h3>
+        <button class="loc-close" (click)="closeLocationPopup()">X</button>
+      </div>
+      <p class="loc-note">{{ t.locationNote }}</p>
+      <div class="loc-pin-row">
+        <input
+          type="text"
+          [(ngModel)]="pincodeInput"
+          [placeholder]="t.pincode"
+          maxlength="6"
+          (keyup.enter)="applyLocation()"
+          name="pincodeInput"
+          class="loc-input"
+        />
+        <button class="loc-apply-btn" (click)="applyLocation()">{{ t.updateLocation }}</button>
+      </div>
+      <button class="loc-gps-btn" (click)="useMyLocation()">{{ t.useMyLocation }}</button>
+      <div *ngIf="!user" class="loc-signin-cta">{{ t.signInToUpdate }}</div>
+    </div>
+  </div>
+
+  <header class="amp-header">
+    <div class="hdr-main">
+      <div class="hdr-logo" (click)="switchView('browse')">
+        <img class="logo-mark" src="assets/images/logo.svg" alt="NammaSociety logo" />
+        <div class="logo-wordmark">
+          <span class="logo-name">NammaSociety</span>
+          <span class="logo-domain">.in</span>
         </div>
       </div>
-      
-      <div class="marketplace-logo">
-        <h1>🛍️ NammaSociety MarketPlace</h1>
-        <p>Shop within your community</p>
+
+      <div class="hdr-location" (click)="openLocationPopup()">
+        <div class="loc-label">{{ t.deliverTo }}</div>
+        <div class="loc-val">{{ locationDisplay }}</div>
       </div>
-      
-      <div class="header-actions">
-        <button class="seller-btn" (click)="openSellerPortal()">
-          🏪 Become a Seller
+
+      <div class="hdr-search search-wrapper">
+        <div class="search-inner">
+          <select class="srch-cat" [(ngModel)]="searchCategory" name="searchCategory">
+            <option value="all">{{ t.allCategories }}</option>
+            <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
+          </select>
+          <div class="srch-input-wrap">
+            <input
+              type="text"
+              class="srch-input"
+              [(ngModel)]="searchQuery"
+              [placeholder]="t.searchPlaceholder"
+              (input)="onSearchInput()"
+              (keyup.enter)="performSearch()"
+              name="mainSearch"
+              autocomplete="off"
+            />
+            <div class="srch-suggestions" *ngIf="showSuggestions">
+              <div class="srch-sug-item" *ngFor="let s of searchSuggestions" (click)="selectSuggestion(s)">
+                <span class="sug-name">{{ s.productName }}</span>
+                <span class="sug-cat">in {{ s.category }}</span>
+              </div>
+            </div>
+          </div>
+          <button class="srch-btn" (click)="performSearch()">Search</button>
+        </div>
+      </div>
+
+      <div class="hdr-lang lang-menu-wrapper">
+        <button class="lang-btn" (click)="showLangMenu = !showLangMenu; showAccountMenu = false">
+          {{ currentLanguageLabel }}
         </button>
-        <div class="user-info">
-          <span>{{ user?.username }}</span>
+        <div class="lang-drop" *ngIf="showLangMenu">
+          <button
+            *ngFor="let lang of languages"
+            class="lang-opt"
+            [class.active]="currentLang === lang.code"
+            (click)="setLanguage(lang.code)"
+          >
+            {{ lang.label }}
+          </button>
         </div>
       </div>
+
+      <div class="hdr-account account-menu-wrapper">
+        <button class="acct-btn" (click)="showAccountMenu = !showAccountMenu; showLangMenu = false">
+          <div class="acct-hello">{{ t.hello }}, {{ (user?.username || 'Guest').split(' ')[0] }}</div>
+          <div class="acct-main">{{ t.accountLists }}</div>
+        </button>
+        <div class="acct-drop" *ngIf="showAccountMenu">
+          <div class="acct-drop-top">
+            <button class="acct-seller-btn" (click)="openSellerPortal()">{{ t.sellerPortal }}</button>
+          </div>
+          <div class="acct-links">
+            <a (click)="switchView('orders')">{{ t.returnsOrders }}</a>
+            <a (click)="signOut()">{{ t.signOut }}</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="hdr-orders" (click)="switchView('orders')">{{ t.returnsOrders }}</div>
+
+      <div class="hdr-cart" (click)="switchView('cart')">
+        <span class="cart-ico">Cart</span>
+        <span class="cart-cnt" *ngIf="getCartItemCount() > 0">{{ getCartItemCount() }}</span>
+      </div>
+
+      <button class="hdr-back" (click)="backToDashboard()">{{ t.backToDashboard }}</button>
     </div>
-    
-    <!-- Back to Dashboard Button Panel -->
-    <div class="back-to-dashboard-panel">
-      <button class="back-btn" (click)="backToDashboard()">
-        <span>← Back to Dashboard</span>
+
+    <nav class="hdr-cats">
+      <button
+        *ngFor="let cat of categories"
+        class="cat-pill"
+        [class.active]="selectedCategory === cat.id"
+        (click)="selectedCategory = cat.id; selectedSellerId = ''; searchQuery = ''"
+      >
+        {{ cat.icon }} {{ cat.name }}
       </button>
-    </div>
-    
-    <!-- Navigation Tabs -->
-    <nav class="marketplace-nav">
-      <button 
-        class="nav-tab" 
-        [class.active]="activeView === 'browse'"
-        (click)="switchView('browse')">
-        🏬 Browse & Buy
-      </button>
-      <button 
-        class="nav-tab" 
-        [class.active]="activeView === 'cart'"
-        (click)="switchView('cart')">
-        🛒 Cart <span class="cart-badge" *ngIf="getCartItemCount() > 0">{{ getCartItemCount() }}</span>
-      </button>
-      <button 
-        class="nav-tab" 
-        [class.active]="activeView === 'orders'"
-        (click)="switchView('orders')">
-        📦 My Orders
-      </button>
+      <button class="cat-pill sell-pill" (click)="openSellerPortal()">{{ t.sellerPortal }}</button>
     </nav>
   </header>
 
-  <!-- Main Content -->
-  <main class="marketplace-main">
-    <!-- Browse Products View -->
-    <div class="content-section" *ngIf="activeView === 'browse'">
-      <!-- Search Bar -->
-      <div class="search-section">
-        <input 
-          type="text" 
-          class="search-input" 
-          placeholder="Search products..."
-          [(ngModel)]="searchQuery" name="marketplaceSearch">
-        <button class="search-btn">🔍 Search</button>
-      </div>
-      
-      <!-- Category Filter -->
-      <div class="category-section">
-        <h3>Categories</h3>
-        <div class="category-grid">
-          <button 
-            *ngFor="let category of categories"
-            class="category-btn"
-            [class.active]="selectedCategory === category.id"
-            (click)="selectCategory(category.id)">
-            <span class="category-icon">{{ category.icon }}</span>
-            <span class="category-name">{{ category.name }}</span>
-          </button>
+  <main class="amp-main">
+    <section *ngIf="activeView === 'browse'" class="browse-section">
+      <div class="browse-toolbar">
+        <div class="results-info">
+          <strong>{{ getFilteredProducts().length }}</strong> results
+          <span *ngIf="searchQuery"> for "<em>{{ searchQuery }}</em>"</span>
+        </div>
+        <div class="toolbar-filters">
+          <select class="filter-sel" [(ngModel)]="selectedSellerId" name="sellerFilter">
+            <option value="">{{ t.allSellers }}</option>
+            <option *ngFor="let s of sellers" [value]="s.id">{{ s.name }}</option>
+          </select>
+          <select class="filter-sel" [(ngModel)]="sortOrder" name="sortFilter">
+            <option value="newest">{{ t.newest }}</option>
+            <option value="price_asc">{{ t.priceLowHigh }}</option>
+            <option value="price_desc">{{ t.priceHighLow }}</option>
+          </select>
         </div>
       </div>
-      
-      <!-- Product Grid -->
-      <div class="products-section">
-        <h3>Products ({{ getFilteredProducts().length }})</h3>
-        <div class="product-grid">
-          <div *ngFor="let product of getFilteredProducts()" class="product-card">
-            <div class="product-image">
-              <img [src]="product.imageUrl" [alt]="product.name" 
-                   onerror="this.src='assets/images/product-placeholder.png'">
+
+      <div *ngIf="selectedSellerId" class="seller-filter-banner">
+        <span>Showing products by: <strong>{{ getSellerName(selectedSellerId) }}</strong></span>
+        <button class="clear-seller-btn" (click)="selectedSellerId = ''">Clear</button>
+      </div>
+
+      <div *ngIf="loadingProducts" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading products...</p>
+      </div>
+
+      <div *ngIf="!loadingProducts" class="product-grid">
+        <div *ngFor="let p of getFilteredProducts()" class="product-card">
+          <div class="pc-img-wrap">
+            <img [src]="p.image || 'assets/images/product-placeholder.png'" [alt]="p.productName" onerror="this.src='assets/images/product-placeholder.png'" />
+            <span class="pc-badge low" *ngIf="p.stock > 0 && p.stock <= 5">Only {{ p.stock }} left</span>
+            <span class="pc-badge oos" *ngIf="p.stock === 0">Out of Stock</span>
+          </div>
+          <div class="pc-body">
+            <h4 class="pc-name">{{ p.productName }}</h4>
+            <p class="pc-desc">{{ p.description }}</p>
+            <p class="pc-seller">
+              <span class="sold-by-lbl">{{ t.soldBy }}:</span>
+              <button class="seller-link" (click)="filterBySeller(p.sellerId)">{{ p.seller }}</button>
+            </p>
+            <div class="pc-price-row">
+              <span class="pc-price">Rs {{ p.price | number:'1.0-0' }}</span>
+              <span class="pc-unit" *ngIf="p.unit">/ {{ p.unit }}</span>
             </div>
-            <div class="product-info">
-              <h4>{{ product.name }}</h4>
-              <p class="product-description">{{ product.description }}</p>
-              <div class="product-rating">
-                <span class="stars">⭐ {{ product.rating }}</span>
-                <span class="reviews">({{ product.reviews }} reviews)</span>
-              </div>
-              <div class="product-seller">
-                <span>Sold by: {{ product.sellerName }}</span>
-              </div>
-              <div class="product-footer">
-                <div class="price-section">
-                  <span class="price">₹{{ product.price }}</span>
-                  <span class="stock" [class.low-stock]="product.stock < 5">
-                    {{ product.stock > 0 ? 'In Stock (' + product.stock + ')' : 'Out of Stock' }}
-                  </span>
-                </div>
-                <button 
-                  class="add-to-cart-btn" 
-                  [disabled]="product.stock === 0"
-                  (click)="addToCart(product)">
-                  {{ product.stock > 0 ? '🛒 Add to Cart' : 'Out of Stock' }}
-                </button>
-              </div>
+            <div class="pc-stock">
+              <span class="in-stock-txt" *ngIf="p.stock > 5">{{ t.inStock }}</span>
+              <span class="low-stock-txt" *ngIf="p.stock > 0 && p.stock <= 5">Only {{ p.stock }} left</span>
+              <span class="oos-txt" *ngIf="p.stock === 0">{{ t.outOfStock }}</span>
             </div>
+            <button class="add-cart-btn" [disabled]="p.stock === 0" (click)="addToCart(p)">
+              {{ p.stock === 0 ? t.outOfStock : (recentlyAddedProductId === p.id ? 'Added' : t.addToCart) }}
+            </button>
           </div>
         </div>
-        
-        <div *ngIf="getFilteredProducts().length === 0" class="no-products">
-          <p>No products found matching your criteria</p>
-        </div>
       </div>
-    </div>
 
-    <!-- Cart View -->
-    <div class="content-section" *ngIf="activeView === 'cart'">
-      <h2>Shopping Cart</h2>
-      
+      <div *ngIf="!loadingProducts && getFilteredProducts().length === 0" class="empty-state">
+        <div class="empty-ico">No items</div>
+        <h3>{{ t.noProducts }}</h3>
+        <p>Try another query or clear filters.</p>
+        <button class="browse-link" (click)="selectedCategory='all'; selectedSellerId=''; searchQuery=''">Show All Products</button>
+      </div>
+    </section>
+
+    <section *ngIf="activeView === 'cart'" class="cart-section">
+      <h2>{{ t.shoppingCart }}</h2>
+
       <div *ngIf="cart.length === 0" class="empty-cart">
-        <div class="empty-icon">🛒</div>
-        <h3>Your cart is empty</h3>
-        <p>Add items from the marketplace to get started</p>
-        <button class="browse-btn" (click)="switchView('browse')">Browse Products</button>
+        <div class="empty-ico">Empty</div>
+        <h3>{{ t.emptyCart }}</h3>
+        <button class="browse-link" (click)="switchView('browse')">{{ t.browseProducts }}</button>
       </div>
-      
-      <div *ngIf="cart.length > 0" class="cart-content">
-        <div class="cart-items">
-          <div *ngFor="let item of cart" class="cart-item">
-            <img [src]="item.product.imageUrl" [alt]="item.product.name" 
-                 onerror="this.src='assets/images/product-placeholder.png'">
-            <div class="item-details">
-              <h4>{{ item.product.name }}</h4>
-              <p class="item-seller">Sold by: {{ item.product.sellerName }}</p>
-              <p class="item-price">₹{{ item.product.price }} each</p>
-            </div>
-            <div class="item-quantity">
-              <button class="qty-btn" (click)="updateQuantity(item.product.id, -1)">-</button>
-              <span class="qty-value">{{ item.quantity }}</span>
-              <button class="qty-btn" (click)="updateQuantity(item.product.id, 1)">+</button>
-            </div>
-            <div class="item-total">
-              <p class="total-price">₹{{ item.product.price * item.quantity }}</p>
-              <button class="remove-btn" (click)="removeFromCart(item.product.id)">🗑️ Remove</button>
-            </div>
-          </div>
-        </div>
-        
-        <div class="cart-summary">
-          <h3>Order Summary</h3>
-          <div class="summary-row">
-            <span>Items ({{ getCartItemCount() }})</span>
-            <span>₹{{ getCartTotal() }}</span>
-          </div>
-          <div class="summary-row">
-            <span>Delivery</span>
-            <span class="free">FREE</span>
-          </div>
-          <div class="summary-divider"></div>
-          <div class="summary-total">
-            <span>Total</span>
-            <span>₹{{ getCartTotal() }}</span>
-          </div>
-          <button class="checkout-btn" (click)="checkout()">
-            💳 Proceed to Checkout
-          </button>
-          <p class="payment-info">Payment via CCAvenue Gateway</p>
-        </div>
-      </div>
-    </div>
 
-    <!-- Orders View -->
-    <div class="content-section" *ngIf="activeView === 'orders'">
-      <h2>My Orders</h2>
-      <div class="orders-placeholder">
-        <div class="placeholder-icon">📦</div>
-        <h3>No orders yet</h3>
-        <p>Your order history will appear here</p>
-        <button class="browse-btn" (click)="switchView('browse')">Start Shopping</button>
+      <div *ngIf="cart.length > 0" class="cart-layout">
+        <div class="cart-items-col">
+          <div *ngFor="let item of cart" class="cart-row">
+            <img class="cart-row-img" [src]="item.product.image || 'assets/images/product-placeholder.png'" [alt]="item.product.productName" onerror="this.src='assets/images/product-placeholder.png'" />
+            <div class="cart-row-info">
+              <h4>{{ item.product.productName }}</h4>
+              <p class="cart-row-seller">{{ t.soldBy }}: {{ item.product.seller }}</p>
+              <p class="cart-row-price">Rs {{ item.product.price | number:'1.0-0' }}</p>
+              <div class="qty-ctrl">
+                <button class="qty-btn" (click)="updateQuantity(item.product.id, -1)">-</button>
+                <span class="qty-num">{{ item.quantity }}</span>
+                <button class="qty-btn" (click)="updateQuantity(item.product.id, 1)">+</button>
+                <button class="qty-del" (click)="removeFromCart(item.product.id)">Delete</button>
+              </div>
+            </div>
+            <div class="cart-row-sub">Rs {{ (item.product.price * item.quantity) | number:'1.0-0' }}</div>
+          </div>
+        </div>
+
+        <div class="cart-summary-col">
+          <div class="cart-summary-box">
+            <h3>{{ t.orderSummary }}</h3>
+            <div class="summ-line"><span>{{ t.items }} ({{ getCartItemCount() }})</span><span>Rs {{ getCartTotal() | number:'1.0-0' }}</span></div>
+            <div class="summ-line"><span>{{ t.delivery }}</span><span class="summ-free">{{ t.free }}</span></div>
+            <div class="summ-total"><span>{{ t.total }}</span><span>Rs {{ getCartTotal() | number:'1.0-0' }}</span></div>
+            <div *ngIf="checkoutStep === 'summary'" class="checkout-step">
+              <p class="step-note">Step 1 of 2: Review your cart items</p>
+              <button class="checkout-btn" (click)="startCheckout()">Proceed to payment</button>
+            </div>
+
+            <div *ngIf="checkoutStep === 'payment'" class="checkout-step payment-step">
+              <p class="step-note">Step 2 of 2: Choose payment method</p>
+              <div class="pay-method-row">
+                <label for="paymentMethod">Payment Method</label>
+                <select id="paymentMethod" class="pay-method-sel" [(ngModel)]="selectedPaymentMethod" name="selectedPaymentMethod">
+                  <option *ngFor="let method of paymentMethods" [value]="method">{{ method }}</option>
+                </select>
+              </div>
+              <p class="pay-note">Delivering to: {{ locationDisplay }}</p>
+              <p class="pay-note cod-note" *ngIf="selectedPaymentMethod === 'Cash on Delivery'">Pay Rs {{ getCartTotal() | number:'1.0-0' }} when your order arrives.</p>
+              <p class="pay-note online-note" *ngIf="selectedPaymentMethod !== 'Cash on Delivery'">Secure online payment via {{ selectedPaymentMethod }}.</p>
+              <button class="checkout-btn" (click)="placeOrder()" [disabled]="isPlacingOrder">
+                {{ isPlacingOrder ? 'Processing...' : (selectedPaymentMethod === 'Cash on Delivery' ? 'Place Order (Pay on Delivery)' : 'Continue to ' + selectedPaymentMethod + ' Payment') }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- In-app Payment Gateway -->
+    <section *ngIf="activeView === 'payment-gateway'" class="gateway-section">
+      <!-- Payment Success Overlay -->
+      <div *ngIf="gatewayPaymentSuccess" class="gateway-success-overlay">
+        <div class="gateway-success-box">
+          <div class="success-icon">&#10003;</div>
+          <h3>Payment Successful!</h3>
+          <p>Order #{{ pendingGatewayOrder?.id }} confirmed.<br>Redirecting to your orders...</p>
+        </div>
+      </div>
+
+      <div *ngIf="!gatewayPaymentSuccess" class="gateway-card">
+        <div class="gateway-header">
+          <span class="gateway-logo">&#128274; Secure Payment</span>
+          <span class="gateway-method-badge">{{ selectedPaymentMethod }}</span>
+        </div>
+
+        <div class="gateway-order-info">
+          <span>Order #{{ pendingGatewayOrder?.id }}</span>
+          <span class="gateway-amount">Rs {{ pendingGatewayOrder?.totalAmount | number:'1.0-0' }}</span>
+        </div>
+
+        <!-- UPI Form -->
+        <div *ngIf="selectedPaymentMethod === 'UPI'" class="gateway-form">
+          <label class="gw-label">UPI ID</label>
+          <input class="gw-input" type="text" [(ngModel)]="upiId" placeholder="yourname@upi" />
+          <p class="gw-hint">e.g. mobilenumber@upi, name@okaxis, name@ybl</p>
+        </div>
+
+        <!-- Card Form -->
+        <div *ngIf="selectedPaymentMethod === 'Credit/Debit Card'" class="gateway-form">
+          <label class="gw-label">Cardholder Name</label>
+          <input class="gw-input" type="text" [(ngModel)]="cardHolder" placeholder="Name on card" />
+          <label class="gw-label">Card Number</label>
+          <input class="gw-input" type="text" [(ngModel)]="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" />
+          <div class="gw-row">
+            <div class="gw-col">
+              <label class="gw-label">Expiry (MM/YY)</label>
+              <input class="gw-input" type="text" [(ngModel)]="cardExpiry" placeholder="MM/YY" maxlength="5" />
+            </div>
+            <div class="gw-col">
+              <label class="gw-label">CVV</label>
+              <input class="gw-input" type="password" [(ngModel)]="cardCvv" placeholder="CVV" maxlength="4" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Net Banking Form -->
+        <div *ngIf="selectedPaymentMethod === 'Net Banking'" class="gateway-form">
+          <label class="gw-label">Select Your Bank</label>
+          <select class="gw-input" [(ngModel)]="selectedBank">
+            <option value="">-- Select Bank --</option>
+            <option *ngFor="let bank of banks" [value]="bank">{{ bank }}</option>
+          </select>
+        </div>
+
+        <div class="gateway-actions">
+          <button class="gw-pay-btn" (click)="processGatewayPayment()" [disabled]="isProcessingPayment">
+            {{ isProcessingPayment ? 'Processing...' : ('Pay Rs ' + (pendingGatewayOrder?.totalAmount | number:'1.0-0')) }}
+          </button>
+          <button class="gw-cancel-btn" (click)="cancelGatewayPayment()" [disabled]="isProcessingPayment">Cancel</button>
+        </div>
+
+        <p class="gateway-secure-note">&#128275; Your payment information is encrypted and secure.</p>
+      </div>
+    </section>
+
+    <section *ngIf="activeView === 'orders'" class="orders-section">
+      <h2>{{ t.myOrders }}</h2>
+
+      <div *ngIf="loadingOrders" class="loading-state"><div class="spinner"></div></div>
+
+      <div *ngIf="!loadingOrders && orders.length === 0" class="empty-state">
+        <div class="empty-ico">No orders</div>
+        <h3>{{ t.noOrders }}</h3>
+        <button class="browse-link" (click)="switchView('browse')">{{ t.startShopping }}</button>
+      </div>
+
+      <div *ngIf="!loadingOrders && orders.length > 0" class="orders-list">
+        <div *ngFor="let ord of orders" class="order-card">
+          <div class="ord-header">
+            <div>
+              <span class="ord-id">Order #{{ ord.id }}</span>
+              <span class="ord-date">{{ ord.createdAt | date:'MMM d, yyyy' }}</span>
+            </div>
+            <span class="ord-status" [ngClass]="'s-' + (ord.status || 'pending').toLowerCase()">{{ ord.status }}</span>
+          </div>
+          <div class="ord-items">
+            <span *ngFor="let item of ord.items" class="ord-chip">{{ item.productName }} x {{ item.quantity }}</span>
+          </div>
+          <div class="ord-footer">
+            <span class="ord-total">Rs {{ ord.totalAmount | number:'1.0-0' }}</span>
+            <span class="ord-method" *ngIf="ord.paymentMethod">{{ ord.paymentMethod }}</span>
+            <span class="ord-pay" [ngClass]="'p-' + (ord.paymentStatus || 'pending').toLowerCase().replace('_', '-')">
+              {{ ord.paymentStatus === 'PENDING_COD' ? 'Collect on Delivery' : ord.paymentStatus }}
+            </span>
+          </div>
+          <p *ngIf="ord.paymentStatus === 'PENDING_COD'" class="ord-cod-note">
+            &#128178; Please keep Rs {{ ord.totalAmount | number:'1.0-0' }} ready at the time of delivery.
+          </p>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
+
+<div class="cart-notice" *ngIf="cartNotice">{{ cartNotice }}</div>
