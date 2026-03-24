@@ -7,6 +7,7 @@ import com.mysociety.user.service.CROrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.*;
 
 @RestController
@@ -114,6 +115,42 @@ public class CRMarketplaceController {
             return ResponseEntity.ok(Map.of("message", "Product deleted successfully"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Bulk upload products from an Excel file (.xlsx or .xls).
+     * Required columns: productName, category, price, stock
+     * Optional columns: unit, description, image, sellerId, societyName, status
+     */
+    @PostMapping("/products/bulk-upload")
+    public ResponseEntity<?> bulkUploadProducts(@RequestParam("file") MultipartFile file) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            if (file.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "File is empty");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String filename = file.getOriginalFilename();
+            if (filename == null ||
+                    (!filename.toLowerCase().endsWith(".xlsx") && !filename.toLowerCase().endsWith(".xls"))) {
+                response.put("success", false);
+                response.put("message", "Please upload an Excel file (.xlsx or .xls)");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            Map<String, Object> result = crProductService.bulkUploadProducts(file);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Bulk upload failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
         }
     }
 

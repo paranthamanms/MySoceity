@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType } from '@angular/common/http';
 
 interface SellerProduct {
   id: string;
@@ -18,7 +18,7 @@ interface SellerProduct {
 })
 export class SellerPortalComponent implements OnInit {
 
-  activeView: string = 'login'; // 'login', 'register', 'dashboard', 'addProduct'
+  activeView: string = 'login'; // 'login', 'register', 'dashboard', 'addProduct', 'bulkUpload'
   
   // Login/Register
   sellerId: string = '';
@@ -55,6 +55,13 @@ export class SellerPortalComponent implements OnInit {
     { id: 'others', name: 'Others' }
   ];
 
+  // Bulk Upload
+  selectedExcelFile: File | null = null;
+  bulkUploadResult: any = null;
+  isBulkUploading: boolean = false;
+
+  private apiBase = '/api/cr-marketplace';
+
   constructor(private http: HttpClient) { }
 
   ngOnInit(): void {
@@ -72,6 +79,10 @@ export class SellerPortalComponent implements OnInit {
 
   switchView(view: string): void {
     this.activeView = view;
+    if (view === 'bulkUpload') {
+      this.selectedExcelFile = null;
+      this.bulkUploadResult = null;
+    }
   }
 
   login(): void {
@@ -117,9 +128,22 @@ export class SellerPortalComponent implements OnInit {
   }
 
   loadProducts(): void {
-    // TODO: Load seller's products from backend
-    // For now, using mock data
-    this.products = [];
+    if (!this.loggedInSeller?.sellerId) return;
+    this.http.get<any[]>(`${this.apiBase}/products?sellerId=${this.loggedInSeller.sellerId}`)
+      .subscribe({
+        next: (data) => {
+          this.products = (data || []).map(p => ({
+            id: String(p.id),
+            name: p.productName,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            stock: p.stock,
+            imageUrl: p.image || ''
+          }));
+        },
+        error: () => { this.products = []; }
+      });
   }
 
   addProduct(): void {
@@ -128,33 +152,52 @@ export class SellerPortalComponent implements OnInit {
       return;
     }
     
-    // Generate product ID
-    this.newProduct.id = 'P' + Date.now();
-    
-    // TODO: Save product to backend
-    this.products.push({ ...this.newProduct });
-    
-    alert('Product added successfully!');
-    
-    // Reset form
-    this.newProduct = {
-      id: '',
-      name: '',
-      description: '',
-      price: 0,
-      category: 'electronics',
-      stock: 0,
-      imageUrl: ''
+    const payload = {
+      productName: this.newProduct.name,
+      category: this.newProduct.category,
+      price: this.newProduct.price,
+      unit: '',
+      description: this.newProduct.description,
+      stock: this.newProduct.stock,
+      image: this.newProduct.imageUrl,
+      seller: this.loggedInSeller?.sellerName || '',
+      sellerId: this.loggedInSeller?.sellerId || '',
+      societyName: '',
+      status: 'ACTIVE'
     };
-    
-    this.activeView = 'dashboard';
+
+    this.http.post<any>(`${this.apiBase}/products`, payload).subscribe({
+      next: (created) => {
+        this.products.push({
+          id: String(created.id),
+          name: created.productName,
+          description: created.description,
+          price: created.price,
+          category: created.category,
+          stock: created.stock,
+          imageUrl: created.image || ''
+        });
+        alert('Product added successfully!');
+        this.newProduct = { id: '', name: '', description: '', price: 0, category: 'electronics', stock: 0, imageUrl: '' };
+        this.activeView = 'dashboard';
+      },
+      error: (err) => {
+        alert('Failed to add product: ' + (err?.error?.error || 'Unknown error'));
+      }
+    });
   }
 
   deleteProduct(productId: string): void {
     if (confirm('Are you sure you want to delete this product?')) {
-      this.products = this.products.filter(p => p.id !== productId);
-      // TODO: Delete from backend
-      alert('Product deleted successfully!');
+      this.http.delete<any>(`${this.apiBase}/products/${productId}`).subscribe({
+        next: () => {
+          this.products = this.products.filter(p => p.id !== productId);
+          alert('Product deleted successfully!');
+        },
+        error: (err) => {
+          alert('Failed to delete product: ' + (err?.error?.error || 'Unknown error'));
+        }
+      });
     }
   }
 
@@ -162,5 +205,70 @@ export class SellerPortalComponent implements OnInit {
     localStorage.removeItem('seller');
     this.loggedInSeller = null;
     this.activeView = 'login';
+  }
+
+  // ── Bulk Upload ──────────────────────────────────────────────────────────────
+
+  onExcelFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      const name = file.name.toLowerCase();
+      if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+        alert('Please select an Excel file (.xlsx or .xls)');
+        input.value = '';
+        this.selectedExcelFile = null;
+        return;
+      }
+      this.selectedExcelFile = file;
+      this.bulkUploadResult = null;
+    }
+  }
+
+  uploadExcelFile(): void {
+    if (!this.selectedExcelFile) {
+      alert('Please select an Excel file first');
+      return;
+    }
+
+    this.isBulkUploading = true;
+    this.bulkUploadResult = null;
+
+    const formData = new FormData();
+    formData.append('file', this.selectedExcelFile);
+
+    this.http.post<any>(`${this.apiBase}/products/bulk-upload`, formData).subscribe({
+      next: (result) => {
+        this.isBulkUploading = false;
+        this.bulkUploadResult = result;
+        if (result.successCount > 0) {
+          this.loadProducts();
+        }
+      },
+      error: (err) => {
+        this.isBulkUploading = false;
+        this.bulkUploadResult = {
+          success: false,
+          message: err?.error?.message || 'Upload failed. Please try again.',
+          successCount: 0,
+          failureCount: 0,
+          errors: []
+        };
+      }
+    });
+  }
+
+  downloadTemplate(): void {
+    // Download a CSV reference file showing the required column structure.
+    // Users should open it in Excel and save as .xlsx before uploading.
+    const header = 'productName,category,price,unit,description,stock,image,sellerId,societyName,status';
+    const example = 'Sample Product,groceries,99.99,kg,Fresh organic product,100,https://example.com/img.jpg,S001,Green Valley,ACTIVE';
+    const blob = new Blob([header + '\n' + example], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'product_upload_template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 }

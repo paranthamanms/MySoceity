@@ -64,7 +64,10 @@
     <div class="dashboard-container">
       <div class="dashboard-header">
         <h2>Welcome, {{ loggedInSeller?.sellerName }}!</h2>
-        <button class="add-product-btn" (click)="switchView('addProduct')">+ Add New Product</button>
+        <div class="dashboard-actions">
+          <button class="add-product-btn" (click)="switchView('addProduct')">+ Add New Product</button>
+          <button class="bulk-upload-btn" (click)="switchView('bulkUpload')">📤 Bulk Upload (Excel)</button>
+        </div>
       </div>
 
       <div class="products-list" *ngIf="products.length > 0">
@@ -87,7 +90,10 @@
         <div class="empty-icon">📦</div>
         <h3>No products yet</h3>
         <p>Start adding products to sell in the marketplace</p>
-        <button class="primary-btn" (click)="switchView('addProduct')">Add Your First Product</button>
+        <div class="empty-actions">
+          <button class="primary-btn" (click)="switchView('addProduct')">Add Your First Product</button>
+          <button class="bulk-upload-btn" (click)="switchView('bulkUpload')">📤 Bulk Upload via Excel</button>
+        </div>
       </div>
     </div>
   </main>
@@ -137,6 +143,82 @@
 
         <button type="button" class="primary-btn" (click)="addProduct()">Add Product</button>
       </form>
+    </div>
+  </main>
+
+  <!-- Bulk Upload View -->
+  <main class="seller-main" *ngIf="activeView === 'bulkUpload'">
+    <div class="bulk-upload-container">
+      <div class="form-header">
+        <h2>📤 Bulk Upload Products</h2>
+        <button class="back-btn" (click)="switchView('dashboard')">← Back to Dashboard</button>
+      </div>
+
+      <!-- Instructions -->
+      <div class="upload-instructions">
+        <h3>How to use Bulk Upload</h3>
+        <ol>
+          <li>Download the column reference template (CSV) below</li>
+          <li>Open it in Microsoft Excel or Google Sheets</li>
+          <li>Fill in your product details (one product per row)</li>
+          <li>Save or export the file as <strong>.xlsx</strong> or <strong>.xls</strong></li>
+          <li>Upload the Excel file using the form below</li>
+        </ol>
+        <div class="column-info">
+          <h4>Required columns:</h4>
+          <ul>
+            <li><code>productName</code> – Name of the product</li>
+            <li><code>category</code> – e.g. electronics, groceries, furniture, books, clothing, sports, others</li>
+            <li><code>price</code> – Price in ₹ (numeric)</li>
+            <li><code>stock</code> – Available stock quantity (numeric)</li>
+          </ul>
+          <h4>Optional columns:</h4>
+          <ul>
+            <li><code>unit</code> – Unit of measure (e.g. kg, pcs, litre)</li>
+            <li><code>description</code> – Product description</li>
+            <li><code>image</code> – Image URL</li>
+            <li><code>sellerId</code> – Your seller ID</li>
+            <li><code>societyName</code> – Society the product is available in</li>
+            <li><code>status</code> – ACTIVE, OUT_OF_STOCK, or INACTIVE (default: ACTIVE)</li>
+          </ul>
+        </div>
+        <button class="download-template-btn" (click)="downloadTemplate()">⬇️ Download Column Template (CSV)</button>
+      </div>
+
+      <!-- Upload Form -->
+      <div class="upload-form">
+        <div class="file-input-area">
+          <label class="file-label">
+            <span *ngIf="!selectedExcelFile">📁 Click to select Excel file (.xlsx / .xls)</span>
+            <span *ngIf="selectedExcelFile">✅ {{ selectedExcelFile.name }}</span>
+            <input type="file" accept=".xlsx,.xls" (change)="onExcelFileSelected($event)" style="display:none">
+          </label>
+        </div>
+
+        <button class="upload-btn"
+                [disabled]="!selectedExcelFile || isBulkUploading"
+                (click)="uploadExcelFile()">
+          <span *ngIf="!isBulkUploading">Upload Products</span>
+          <span *ngIf="isBulkUploading">⏳ Uploading...</span>
+        </button>
+      </div>
+
+      <!-- Upload Result -->
+      <div class="upload-result" *ngIf="bulkUploadResult">
+        <div class="result-summary" [class.success]="bulkUploadResult.success" [class.partial]="!bulkUploadResult.success && bulkUploadResult.successCount > 0" [class.error]="!bulkUploadResult.success && bulkUploadResult.successCount === 0">
+          <p class="result-message">{{ bulkUploadResult.message }}</p>
+          <div class="result-counts">
+            <span class="success-count">✅ Success: {{ bulkUploadResult.successCount }}</span>
+            <span class="failure-count" *ngIf="bulkUploadResult.failureCount > 0">❌ Failed: {{ bulkUploadResult.failureCount }}</span>
+          </div>
+        </div>
+        <div class="error-list" *ngIf="bulkUploadResult.errors && bulkUploadResult.errors.length > 0">
+          <h4>Errors:</h4>
+          <ul>
+            <li *ngFor="let err of bulkUploadResult.errors">{{ err }}</li>
+          </ul>
+        </div>
+      </div>
     </div>
   </main>
 </div>
