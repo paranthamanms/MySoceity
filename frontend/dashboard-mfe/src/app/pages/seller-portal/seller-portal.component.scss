@@ -323,3 +323,165 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Dashboard action buttons */
+.dashboard-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bulk-upload-btn {
+  padding: 12px 24px;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.bulk-upload-btn:hover {
+  background: #1565c0;
+  transform: translateY(-2px);
+}
+
+/* Bulk Upload */
+.bulk-upload-info {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.7;
+}
+
+.bulk-upload-info p {
+  margin: 4px 0;
+}
+
+.bulk-upload-info code {
+  background: #fff3cd;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #e65100;
+}
+
+.template-btn {
+  margin-top: 12px;
+  padding: 8px 18px;
+  background: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.template-btn:hover {
+  background: #fb8c00;
+  transform: translateY(-1px);
+}
+
+.bulk-upload-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.file-drop-zone {
+  border: 2px dashed #ffb74d;
+  border-radius: 10px;
+  padding: 32px 20px;
+  text-align: center;
+  background: #fff8e1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.file-drop-zone.file-selected {
+  border-color: #4caf50;
+  background: #f1f8e9;
+}
+
+.file-drop-zone:hover {
+  border-color: #ff9800;
+  background: #fff3e0;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.file-drop-label {
+  cursor: pointer;
+  font-size: 15px;
+  color: #666;
+}
+
+.file-name-selected {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.upload-submit-btn {
+  margin-top: 4px;
+}
+
+.upload-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.bulk-success-msg {
+  margin-top: 16px;
+  padding: 14px 18px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.bulk-error-msg {
+  margin-top: 16px;
+  padding: 14px 18px;
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.bulk-errors-list {
+  margin-top: 14px;
+  padding: 14px 18px;
+  background: #fff3e0;
+  border: 1px solid #ffcc80;
+  border-radius: 8px;
+}
+
+.bulk-errors-list h4 {
+  margin: 0 0 10px 0;
+  color: #e65100;
+  font-size: 14px;
+}
+
+.bulk-errors-list ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.bulk-errors-list li {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 4px;
+}

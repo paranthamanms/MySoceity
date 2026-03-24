@@ -7,6 +7,7 @@ import com.mysociety.user.service.CROrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.*;
 
 @RestController
@@ -30,6 +31,43 @@ public class CRMarketplaceController {
             return ResponseEntity.ok(created);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Bulk upload products from a CSV or Excel (.xlsx) file.
+     *
+     * Accepts multipart/form-data with:
+     *   file     – the CSV or Excel file
+     *   seller   – (optional) seller name to use when not present in the file
+     *   sellerId – (optional) seller ID  to use when not present in the file
+     */
+    @PostMapping("/products/bulk-upload")
+    public ResponseEntity<Map<String, Object>> bulkUploadProducts(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "seller", required = false) String seller,
+            @RequestParam(value = "sellerId", required = false) String sellerId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            if (file.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "Uploaded file is empty");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String filename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+            if (!filename.endsWith(".csv") && !filename.endsWith(".xlsx") && !filename.endsWith(".xls")) {
+                response.put("success", false);
+                response.put("message", "Unsupported file type. Please upload a CSV or Excel (.xlsx/.xls) file.");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            Map<String, Object> uploadResult = crProductService.processBulkProductUpload(file, seller, sellerId);
+            return ResponseEntity.ok(uploadResult);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Bulk upload failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
         }
     }
 
