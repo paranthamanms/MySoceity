@@ -18,7 +18,7 @@ interface SellerProduct {
 })
 export class SellerPortalComponent implements OnInit {
 
-  activeView: string = 'login'; // 'login', 'register', 'dashboard', 'addProduct'
+  activeView: string = 'login'; // 'login', 'register', 'dashboard', 'addProduct', 'bulkUpload'
   
   // Login/Register
   sellerId: string = '';
@@ -44,6 +44,14 @@ export class SellerPortalComponent implements OnInit {
     stock: 0,
     imageUrl: ''
   };
+
+  // Bulk Upload
+  bulkUploadFile: File | null = null;
+  bulkUploadFileName: string = '';
+  isBulkUploading: boolean = false;
+  bulkUploadSuccessMessage: string = '';
+  bulkUploadErrorMessage: string = '';
+  bulkUploadErrors: string[] = [];
 
   categories = [
     { id: 'electronics', name: 'Electronics' },
@@ -72,6 +80,9 @@ export class SellerPortalComponent implements OnInit {
 
   switchView(view: string): void {
     this.activeView = view;
+    if (view === 'bulkUpload') {
+      this.resetBulkUploadState();
+    }
   }
 
   login(): void {
@@ -156,6 +167,87 @@ export class SellerPortalComponent implements OnInit {
       // TODO: Delete from backend
       alert('Product deleted successfully!');
     }
+  }
+
+  // ── Bulk Upload ──────────────────────────────────────────────────────────────
+
+  onBulkUploadFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.bulkUploadFile = input.files[0];
+      this.bulkUploadFileName = input.files[0].name;
+      this.bulkUploadSuccessMessage = '';
+      this.bulkUploadErrorMessage = '';
+      this.bulkUploadErrors = [];
+    }
+  }
+
+  submitBulkUpload(): void {
+    if (!this.bulkUploadFile) {
+      this.bulkUploadErrorMessage = 'Please select a CSV or Excel file to upload.';
+      return;
+    }
+
+    this.isBulkUploading = true;
+    this.bulkUploadSuccessMessage = '';
+    this.bulkUploadErrorMessage = '';
+    this.bulkUploadErrors = [];
+
+    const formData = new FormData();
+    formData.append('file', this.bulkUploadFile);
+    if (this.loggedInSeller?.sellerName) {
+      formData.append('seller', this.loggedInSeller.sellerName);
+    }
+    if (this.loggedInSeller?.sellerId) {
+      formData.append('sellerId', this.loggedInSeller.sellerId);
+    }
+
+    this.http.post<any>('http://localhost:8002/api/cr-marketplace/products/bulk-upload', formData)
+      .subscribe({
+        next: (response) => {
+          this.isBulkUploading = false;
+          if (response.success) {
+            this.bulkUploadSuccessMessage = `✓ ${response.message}`;
+          } else {
+            this.bulkUploadErrorMessage = response.message || 'Bulk upload completed with errors.';
+          }
+          if (response.errors && response.errors.length > 0) {
+            this.bulkUploadErrors = response.errors;
+          }
+          if ((response.successCount || 0) > 0) {
+            this.loadProducts();
+          }
+          this.bulkUploadFile = null;
+          this.bulkUploadFileName = '';
+        },
+        error: (err) => {
+          this.isBulkUploading = false;
+          this.bulkUploadErrorMessage = 'Upload failed: ' + (err.error?.message || err.message || 'Unknown error');
+        }
+      });
+  }
+
+  downloadBulkTemplate(): void {
+    const csvContent = 'productName,category,price,unit,description,stock,image,societyName\n' +
+      'Sample Product,electronics,999,piece,A sample product description,10,,My Society\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'product_bulk_upload_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  private resetBulkUploadState(): void {
+    this.bulkUploadFile = null;
+    this.bulkUploadFileName = '';
+    this.isBulkUploading = false;
+    this.bulkUploadSuccessMessage = '';
+    this.bulkUploadErrorMessage = '';
+    this.bulkUploadErrors = [];
   }
 
   logout(): void {
