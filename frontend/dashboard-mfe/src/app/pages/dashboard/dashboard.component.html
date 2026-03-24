@@ -2876,9 +2876,9 @@
       </button>
       <button 
         class="cr-tab-btn" 
-        [class.active]="crMarketplaceView === 'cart'"
-        (click)="switchCRView('cart')">
-        🛒 Cart <span class="cart-badge" *ngIf="crCart.length > 0">({{ crCart.length }})</span>
+        [class.active]="crMarketplaceView === 'seller'"
+        (click)="switchCRView('seller')">
+        📦 Sell Products
       </button>
       <button 
         class="cr-tab-btn" 
@@ -2930,61 +2930,6 @@
         </div>
       </div>
 
-    </div>
-
-    <!-- Cart View -->
-    <div *ngIf="crMarketplaceView === 'cart'" class="cr-cart-view">
-      <h3>🛒 Shopping Cart</h3>
-      
-      <div *ngIf="crCart.length === 0" class="empty-cart">
-        <div class="empty-icon">🛒</div>
-        <h4>Your cart is empty</h4>
-        <p>Add items from CR Market Place to get started</p>
-        <button class="btn-browse" (click)="switchCRView('buyer')">Browse Products</button>
-      </div>
-      
-      <div *ngIf="crCart.length > 0" class="cart-content">
-        <div class="cart-items">
-          <div class="cart-item" *ngFor="let item of crCart; let i = index">
-            <img [src]="item.image || 'assets/placeholder-food.jpg'" [alt]="item.productName">
-            <div class="item-details">
-              <h4>{{ item.productName }}</h4>
-              <p class="item-seller">Sold by: {{ item.seller }}</p>
-              <p class="item-price">₹{{ item.price }} each</p>
-            </div>
-            <div class="item-quantity">
-              <button class="qty-btn" (click)="updateCRCartQuantity(i, -1)">-</button>
-              <span class="qty-value">{{ item.quantity }}</span>
-              <button class="qty-btn" (click)="updateCRCartQuantity(i, 1)">+</button>
-            </div>
-            <div class="item-total">
-              <p class="total-price">₹{{ item.price * item.quantity }}</p>
-              <button class="remove-btn" (click)="removeFromCRCart(i)">🗑️ Remove</button>
-            </div>
-          </div>
-        </div>
-        
-        <div class="cart-summary">
-          <h3>Order Summary</h3>
-          <div class="summary-row">
-            <span>Items ({{ crCart.length }})</span>
-            <span>₹{{ getCRCartTotal() }}</span>
-          </div>
-          <div class="summary-row">
-            <span>Delivery</span>
-            <span class="free">FREE</span>
-          </div>
-          <div class="summary-divider"></div>
-          <div class="summary-total">
-            <span>Total</span>
-            <span>₹{{ getCRCartTotal() }}</span>
-          </div>
-          <button class="checkout-btn" (click)="proceedToCCAvenue()">
-            💳 Proceed to Checkout (CCAvenue)
-          </button>
-          <p class="payment-info">Secure payment via CCAvenue Gateway</p>
-        </div>
-      </div>
     </div>
 
     <!-- Seller View -->
