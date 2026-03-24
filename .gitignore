@@ -33,3 +33,10 @@ logs/
 
 # Compiled output
 *.js.map
+
+# Local service management
+.pids/
+.logs/
+scripts/start-now.sh
+scripts/start-services-local.sh
+scripts/stop-services-local.sh
