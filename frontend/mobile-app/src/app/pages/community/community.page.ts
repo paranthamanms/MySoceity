@@ -1,8 +1,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastController, AlertController, LoadingController } from '@ionic/angular';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { GuestManagementService } from '../../services/guest-management.service';
+import { LanguageService } from '../../services/language.service';
 import { ApprovalRequest, ApprovalLog, PreApproval, UserProfile, CommunityPost } from '../../models/approval.model';
 
 @Component({
@@ -24,6 +27,9 @@ export class CommunityPage implements OnInit, OnDestroy {
 
   showApprovalPopup = false;
   currentApproval: ApprovalRequest | null = null;
+  popupRequestQueue: ApprovalRequest[] = [];
+  popupFaceCapturePreview = '';
+  private seenPopupRequestKeys: Set<string> = new Set();
   popupTimer = 0;
   private popupInterval: any;
   private pollInterval: any;
@@ -33,6 +39,22 @@ export class CommunityPage implements OnInit, OnDestroy {
   currentSocietyScannerCode = '';
   scannerCodeUpdatedAt = 0;
   scannerEntryPayload = '';
+  manualApprovalRequest: Partial<ApprovalRequest> = {
+    societyName: '',
+    tower: '',
+    apartmentNumber: '',
+    visitorType: 'GUEST',
+    serviceSubCategory: '',
+    visitorName: '',
+    visitorPhone: '',
+    visitorAadhaar: '',
+    visitorIdProof: '',
+    ownerName: '',
+    ownerPhone: '',
+    residentPhone: '',
+    purpose: '',
+    scannerSource: 'MANUAL'
+  };
   scannerEntry: Partial<ApprovalRequest> = {
     societyName: '',
     tower: '',
@@ -59,6 +81,8 @@ export class CommunityPage implements OnInit, OnDestroy {
 
   quickActions: Array<{ key: string; label: string; icon: string; color: string; badge?: number }> = [];
   showMenuPanel = false;
+  currentLanguage = 'EN';
+  private languageSub?: Subscription;
 
   // Hierarchical menu properties
   expandedMenuItems: Set<string> = new Set();
@@ -83,36 +107,109 @@ export class CommunityPage implements OnInit, OnDestroy {
     private router: Router,
     private toastCtrl: ToastController,
     private alertCtrl: AlertController,
-    private loadingCtrl: LoadingController
+    private loadingCtrl: LoadingController,
+    public languageService: LanguageService
   ) {}
 
   ngOnInit() {
     this.user = this.auth.getCurrentUser();
     this.isAdmin = this.auth.isAdminUser() || this.auth.isSocietyAdmin();
+    this.currentLanguage = this.languageService.getCurrentLanguage();
+    this.languageSub = this.languageService.currentLanguage$.subscribe((lang) => {
+      this.currentLanguage = lang;
+      this.refreshTranslatedLabels();
+    });
     this.initializeScannerEntry();
+    this.initializeManualApprovalRequest();
     this.loadSocietyScannerCode();
-    this.quickActions = this.buildQuickActions();
+    this.refreshTranslatedLabels();
     this.loadData();
-    this.startPolling();
+    this.startPendingPolling();
   }
 
   ionViewWillEnter() {
     this.user = this.auth.getCurrentUser();
     this.isAdmin = this.auth.isAdminUser() || this.auth.isSocietyAdmin();
+    this.currentLanguage = this.languageService.getCurrentLanguage();
     this.initializeScannerEntry();
+    this.initializeManualApprovalRequest();
     this.loadSocietyScannerCode();
-    this.quickActions = this.buildQuickActions();
+    this.refreshTranslatedLabels();
     this.loadData();
+    this.startPendingPolling();
   }
 
   ngOnDestroy() {
     clearInterval(this.pollInterval);
     clearInterval(this.popupInterval);
+    this.languageSub?.unsubscribe();
   }
 
-  private startPolling() {
-    this.pollInterval = setInterval(() => { this.checkForIncomingRequests(); }, 10000);
+  private startPendingPolling() {
+    clearInterval(this.pollInterval);
+    // Keep popup discovery responsive on mobile without aggressive refresh.
+    this.pollInterval = setInterval(() => {
+      this.loadPending();
+    }, 20000);
   }
+
+  t(key: string, fallback: string): string {
+    const translated = this.languageService.translate(key);
+    if (translated && translated !== key) {
+      return translated;
+    }
+    return this.mobileFallback(this.currentLanguage, key, fallback);
+  }
+
+  private mobileFallback(langCode: string, key: string, fallback: string): string {
+    const lang = (langCode || 'EN').toUpperCase();
+    const map: { [code: string]: { [k: string]: string } } = {
+      HI: {
+        'mobile.home': 'होम',
+        'mobile.requests': 'अनुरोध',
+        'mobile.logs': 'लॉग्स',
+        'mobile.pre_approved': 'पूर्व-स्वीकृत',
+        'mobile.pre_approvals': 'पूर्व-स्वीकृत',
+        'mobile.posts': 'पोस्ट्स',
+        'mobile.menu': 'मेनू',
+        'mobile.password_reset': 'पासवर्ड रीसेट',
+        'mobile.ad_space': 'विज्ञापन स्थान',
+        'mobile.awaiting_approval': 'आपकी स्वीकृति की प्रतीक्षा',
+        'mobile.tap_to_act': 'कार्य के लिए टैप करें',
+        'mobile.recent_visitors': 'हाल के आगंतुक',
+        'mobile.latest_posts': 'नवीनतम पोस्ट्स',
+        'mobile.announcements': 'घोषणाएं'
+      },
+      TA: {
+        'mobile.home': 'முகப்பு',
+        'mobile.requests': 'கோரிக்கைகள்',
+        'mobile.logs': 'பதிவுகள்',
+        'mobile.pre_approved': 'முன்-அனுமதி',
+        'mobile.pre_approvals': 'முன்-அனுமதிகள்',
+        'mobile.posts': 'பதிவுகள்',
+        'mobile.menu': 'மெனு',
+        'mobile.password_reset': 'கடவுச்சொல் மாற்றம்',
+        'mobile.ad_space': 'விளம்பர இடம்',
+        'mobile.awaiting_approval': 'உங்கள் அனுமதிக்காக காத்திருக்கிறது',
+        'mobile.tap_to_act': 'செயல்பட தட்டவும்',
+        'mobile.recent_visitors': 'சமீபத்திய வருகையாளர்கள்',
+        'mobile.latest_posts': 'சமீபத்திய பதிவுகள்',
+        'mobile.announcements': 'அறிவிப்புகள்'
+      }
+    };
+    return map[lang]?.[key] || fallback;
+  }
+
+  private refreshTranslatedLabels(): void {
+    this.postCategories = [
+      { key: 'community', label: this.t('mobile.community_posts', 'Community Posts'), icon: 'chatbubbles-outline' },
+      { key: 'announcements', label: this.t('mobile.announcements', 'Announcements'), icon: 'megaphone-outline' },
+      { key: 'preapprovals', label: this.t('mobile.pre_approvals', 'Pre-Approvals'), icon: 'shield-checkmark-outline' }
+    ];
+    this.quickActions = this.buildQuickActions();
+  }
+
+
 
   loadData() {
     this.loadPending();
@@ -125,6 +222,26 @@ export class CommunityPage implements OnInit, OnDestroy {
   private initializeScannerEntry() {
     this.scannerEntry.societyName = this.user?.societyName || '';
     this.scannerEntry.scannerCode = this.currentSocietyScannerCode || '';
+  }
+
+  private initializeManualApprovalRequest() {
+    const apartmentRaw = (this.user?.apartmentNumber || '').trim();
+    this.manualApprovalRequest.societyName = this.user?.societyName || '';
+    this.manualApprovalRequest.tower = this.getUserTower();
+    this.manualApprovalRequest.apartmentNumber = this.extractFlatNumber(apartmentRaw);
+    this.manualApprovalRequest.visitorType = this.manualApprovalRequest.visitorType || 'GUEST';
+    this.manualApprovalRequest.scannerSource = 'MANUAL';
+  }
+
+  private getUserTower(): string {
+    return ((this.user?.tower || (this.user as any)?.towerNumber || (this.user as any)?.tower_number || '') as string).trim();
+  }
+
+  private extractFlatNumber(apartmentNumber: string): string {
+    const raw = (apartmentNumber || '').trim();
+    if (!raw) return '';
+    const parts = raw.split(/[-\s/]+/).filter((part) => !!part);
+    return parts.length > 1 ? parts[parts.length - 1] : raw;
   }
 
   loadSocietyScannerCode() {
@@ -254,11 +371,241 @@ export class CommunityPage implements OnInit, OnDestroy {
     });
   }
 
+  async submitManualApprovalRequest() {
+    if (!this.user) return;
+    if (!(this.auth.getRoleCategory() === 'security' || this.auth.getRoleCategory() === 'society-admin')) {
+      this.showToast('Only Security/Society Admin can create gate requests', 'warning');
+      return;
+    }
+
+    const societyName = (this.manualApprovalRequest.societyName || this.user.societyName || '').trim();
+    const tower = (this.manualApprovalRequest.tower || '').trim();
+    const flat = (this.manualApprovalRequest.apartmentNumber || '').trim();
+    if (!societyName || !tower || !flat) {
+      this.showToast('Society, tower and flat are required', 'warning');
+      return;
+    }
+
+    const visitorName = (this.manualApprovalRequest.visitorName || '').trim();
+    if (!visitorName) {
+      this.showToast('Visitor name is required', 'warning');
+      return;
+    }
+
+    const residentPhone = (this.manualApprovalRequest.residentPhone || this.manualApprovalRequest.ownerPhone || '').trim();
+    if (!residentPhone) {
+      this.showToast('Resident/Owner phone is required', 'warning');
+      return;
+    }
+
+    const payload: ApprovalRequest = {
+      societyName,
+      tower,
+      apartmentNumber: `${tower}-${flat}`,
+      visitorType: (this.manualApprovalRequest.visitorType || 'GUEST').toString().toUpperCase(),
+      serviceSubCategory: (this.manualApprovalRequest.serviceSubCategory || '').trim(),
+      visitorName,
+      visitorPhone: (this.manualApprovalRequest.visitorPhone || '').trim(),
+      visitorAadhaar: (this.manualApprovalRequest.visitorAadhaar || '').trim(),
+      visitorIdProof: (this.manualApprovalRequest.visitorIdProof || '').trim(),
+      ownerName: (this.manualApprovalRequest.ownerName || '').trim(),
+      ownerPhone: (this.manualApprovalRequest.ownerPhone || '').trim(),
+      residentPhone,
+      purpose: (this.manualApprovalRequest.purpose || '').trim(),
+      scannerSource: 'MANUAL',
+      requestedBy: this.user.username || 'security'
+    };
+
+    const serviceName = this.getSelectedServiceName(this.manualApprovalRequest);
+    if (serviceName && !payload.serviceSubCategory) {
+      payload.serviceSubCategory = serviceName;
+    }
+
+    if (payload.visitorType === 'DELIVERY') {
+      payload.deliveryService = this.manualApprovalRequest.deliveryService || '';
+      payload.deliveryServiceOther = this.manualApprovalRequest.deliveryServiceOther || '';
+    }
+
+    if (payload.visitorType === 'CAB') {
+      payload.cabService = this.manualApprovalRequest.cabService || '';
+      payload.cabServiceOther = this.manualApprovalRequest.cabServiceOther || '';
+    }
+
+    const loader = await this.loadingCtrl.create({ message: 'Creating approval request...' });
+    await loader.present();
+
+    this.guestSvc.createApprovalRequest(payload).subscribe({
+      next: async () => {
+        await loader.dismiss();
+        this.showToast('Approval request created successfully', 'success');
+        this.manualApprovalRequest = {
+          societyName: this.user?.societyName || '',
+          tower: this.getUserTower(),
+          apartmentNumber: '',
+          visitorType: 'GUEST',
+          serviceSubCategory: '',
+          visitorName: '',
+          visitorPhone: '',
+          visitorAadhaar: '',
+          visitorIdProof: '',
+          ownerName: '',
+          ownerPhone: '',
+          residentPhone: '',
+          purpose: '',
+          scannerSource: 'MANUAL'
+        };
+        this.loadPending();
+        this.loadLogs();
+      },
+      error: async () => {
+        await loader.dismiss();
+        this.showToast('Failed to create approval request', 'danger');
+      }
+    });
+  }
+
+  private getSelectedServiceName(request: Partial<ApprovalRequest>): string {
+    const type = (request.visitorType || '').toUpperCase();
+    if (type === 'DELIVERY') {
+      const selected = request.deliveryService === 'Other' ? request.deliveryServiceOther : request.deliveryService;
+      return (selected || '').trim();
+    }
+    if (type === 'CAB') {
+      const selected = request.cabService === 'Other' ? request.cabServiceOther : request.cabService;
+      return (selected || '').trim();
+    }
+    return '';
+  }
+
   loadPending() {
-    const apt = this.user?.apartmentNumber || '';
     const soc = this.user?.societyName || '';
-    const obs = this.isAdmin ? this.guestSvc.getAllPendingForSociety(soc) : this.guestSvc.getPendingRequests(apt, soc);
-    obs.subscribe({ next: (r) => { this.pendingRequests = r; this.checkForIncomingRequests(); }, error: () => {} });
+    const roleCategory = this.auth.getRoleCategory();
+    const canSeeAllSocietyRequests = roleCategory === 'security' || this.isAdmin;
+    if (!soc) {
+      this.pendingRequests = [];
+      this.quickActions = this.buildQuickActions();
+      return;
+    }
+
+    if (canSeeAllSocietyRequests) {
+      this.guestSvc.getAllPendingForSociety(soc).subscribe({
+        next: (r) => {
+          this.pendingRequests = r || [];
+          this.quickActions = this.buildQuickActions();
+        },
+        error: () => {}
+      });
+      return;
+    }
+
+    const apartmentCandidates = this.getResidentApartmentCandidates();
+    if (apartmentCandidates.length === 0) {
+      this.pendingRequests = [];
+      this.quickActions = this.buildQuickActions();
+      return;
+    }
+
+    const requests = apartmentCandidates.map((apartmentNumber) =>
+      this.guestSvc.getPendingRequests(apartmentNumber, soc).pipe(catchError(() => of([] as ApprovalRequest[])))
+    );
+
+    forkJoin(requests).subscribe({
+      next: (resultSets) => {
+        const merged = resultSets.reduce((all, current) => all.concat(current || []), [] as ApprovalRequest[]);
+        const deduped = this.dedupeApprovalRequests(merged);
+        this.pendingRequests = deduped;
+        this.quickActions = this.buildQuickActions();
+      },
+      error: () => {}
+    });
+  }
+
+  private getResidentApartmentCandidates(): string[] {
+    const values = new Set<string>();
+    const apartment = (this.user?.apartmentNumber || '').trim();
+    const tower = this.getUserTower();
+    const flat = this.extractFlatNumber(apartment);
+
+    if (apartment) {
+      values.add(apartment);
+    }
+    if (flat) {
+      values.add(flat);
+    }
+    if (tower && flat) {
+      values.add(`${tower}-${flat}`);
+      values.add(`${tower}${flat}`);
+    }
+
+    return Array.from(values);
+  }
+
+  private dedupeApprovalRequests(requests: ApprovalRequest[]): ApprovalRequest[] {
+    const seen = new Set<string>();
+    const deduped: ApprovalRequest[] = [];
+    for (const req of requests || []) {
+      const key = this.getApprovalRequestKey(req);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(req);
+    }
+    return deduped;
+  }
+
+  private isResidentRequest(req: ApprovalRequest, apartmentNumber: string): boolean {
+    const userKeys = this.getResidentApartmentKeys(apartmentNumber);
+    const requestKeys = this.getRequestApartmentKeys(req);
+    if (userKeys.length === 0 || requestKeys.length === 0) return false;
+    if (requestKeys.some((key) => userKeys.includes(key))) {
+      return true;
+    }
+
+    const userTower = this.normalizeApartmentToken(this.getUserTower());
+    const userFlat = this.normalizeApartmentToken(this.extractFlatNumber(apartmentNumber));
+    const reqTower = this.normalizeApartmentToken(req.tower || '');
+    const reqFlat = this.normalizeApartmentToken(this.extractFlatNumber(req.apartmentNumber || ''));
+
+    if (userFlat && reqFlat && userFlat === reqFlat) {
+      if (!userTower || !reqTower || userTower === reqTower) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private getResidentApartmentKeys(apartmentNumber: string): string[] {
+    const keys = new Set<string>();
+    const apt = this.normalizeApartmentToken(apartmentNumber);
+    const tower = this.normalizeApartmentToken(this.getUserTower());
+    const flat = this.normalizeApartmentToken(this.extractFlatNumber(apartmentNumber));
+
+    if (apt) keys.add(apt);
+    if (flat) keys.add(flat);
+    if (tower && flat) {
+      keys.add(`${tower}${flat}`);
+      keys.add(`${tower}-${flat}`);
+    }
+    return Array.from(keys);
+  }
+
+  private getRequestApartmentKeys(req: ApprovalRequest): string[] {
+    const keys = new Set<string>();
+    const reqApt = this.normalizeApartmentToken(req.apartmentNumber || '');
+    const reqTower = this.normalizeApartmentToken(req.tower || '');
+    const reqFlat = this.normalizeApartmentToken(this.extractFlatNumber(req.apartmentNumber || ''));
+
+    if (reqApt) keys.add(reqApt);
+    if (reqFlat) keys.add(reqFlat);
+    if (reqTower && reqFlat) {
+      keys.add(`${reqTower}${reqFlat}`);
+      keys.add(`${reqTower}-${reqFlat}`);
+    }
+    return Array.from(keys);
+  }
+
+  private normalizeApartmentToken(value: string): string {
+    return (value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   }
 
   loadLogs() {
@@ -286,8 +633,58 @@ export class CommunityPage implements OnInit, OnDestroy {
   }
 
   private checkForIncomingRequests() {
-    const pending = this.pendingRequests.filter(r => r.status === 'PENDING');
-    if (pending.length > 0 && !this.showApprovalPopup) { this.openApprovalPopup(pending[0]); }
+    const pending = this.pendingRequests.filter((r) => {
+      const status = (r.status || '').toString().trim().toUpperCase();
+      return !status || status === 'PENDING';
+    });
+    const newRequests = pending.filter((req) => {
+      const key = this.getApprovalRequestKey(req);
+      if (!key || this.seenPopupRequestKeys.has(key)) {
+        return false;
+      }
+      this.seenPopupRequestKeys.add(key);
+      return true;
+    });
+
+    if (newRequests.length > 0) {
+      this.popupRequestQueue.push(...newRequests);
+      if (!this.showApprovalPopup) {
+        this.showNextApprovalPopup();
+      }
+    }
+  }
+
+  private getApprovalRequestKey(req: ApprovalRequest | null): string {
+    if (!req) return '';
+    if (req.id) return `id:${req.id}`;
+    const apt = (req.apartmentNumber || '').trim().toUpperCase();
+    const visitor = (req.visitorName || '').trim().toUpperCase();
+    const phone = (req.visitorPhone || '').trim();
+    const when = (req.requestedAt || req.createdDate || '').trim();
+    return `${apt}|${visitor}|${phone}|${when}`;
+  }
+
+  private showNextApprovalPopup() {
+    if (this.popupRequestQueue.length === 0) {
+      this.showApprovalPopup = false;
+      this.currentApproval = null;
+      this.popupFaceCapturePreview = '';
+      return;
+    }
+    this.openApprovalPopup(this.popupRequestQueue[0]);
+  }
+
+  private setPopupFacePreview(req: ApprovalRequest | null) {
+    const raw = (req?.faceCapture || '').trim();
+    if (!raw) {
+      this.popupFaceCapturePreview = '';
+      return;
+    }
+    if (raw.startsWith('data:image/') || raw.startsWith('http://') || raw.startsWith('https://')) {
+      this.popupFaceCapturePreview = raw;
+      return;
+    }
+    this.popupFaceCapturePreview = '';
   }
 
   loadSummary() {
@@ -296,6 +693,7 @@ export class CommunityPage implements OnInit, OnDestroy {
 
   openApprovalPopup(req: ApprovalRequest) {
     this.currentApproval = req;
+    this.setPopupFacePreview(req);
     this.showApprovalPopup = true;
     this.popupTimer = 120;
     clearInterval(this.popupInterval);
@@ -306,10 +704,11 @@ export class CommunityPage implements OnInit, OnDestroy {
   }
 
   closeApprovalPopup() {
-    this.showApprovalPopup = false;
-    this.currentApproval = null;
+    const currentKey = this.getApprovalRequestKey(this.currentApproval);
+    this.popupRequestQueue = this.popupRequestQueue.filter((req) => this.getApprovalRequestKey(req) !== currentKey);
     clearInterval(this.popupInterval);
     this.popupTimer = 0;
+    this.showNextApprovalPopup();
   }
 
   async onApprove() {
@@ -416,48 +815,48 @@ export class CommunityPage implements OnInit, OnDestroy {
     const actions: Array<{ key: string; label: string; icon: string; color: string; badge?: number }> = [];
 
     if (roleCategory === 'security') {
-      actions.push({ key: 'requests', label: 'Guest Management', icon: 'walk-outline', color: 'warning', badge: this.pendingRequests.length || undefined });
-      actions.push({ key: 'user-directory', label: 'User Directory', icon: 'people-outline', color: 'primary' });
-      actions.push({ key: 'logs', label: 'Logs', icon: 'time-outline', color: 'medium' });
-      actions.push({ key: 'preapprovals', label: 'Pre-Approved', icon: 'shield-checkmark-outline', color: 'tertiary' });
+      actions.push({ key: 'requests', label: this.t('dashboard.guest_approvals', 'Guest Management'), icon: 'walk-outline', color: 'warning', badge: this.pendingRequests.length || undefined });
+      actions.push({ key: 'user-directory', label: this.t('dashboard.user_directory', 'User Directory'), icon: 'people-outline', color: 'primary' });
+      actions.push({ key: 'logs', label: this.t('mobile.logs', 'Logs'), icon: 'time-outline', color: 'medium' });
+      actions.push({ key: 'preapprovals', label: this.t('mobile.pre_approved', 'Pre-Approved'), icon: 'shield-checkmark-outline', color: 'tertiary' });
       return actions;
     }
 
     if (roleCategory === 'super-admin') {
-      actions.push({ key: 'admin-users', label: 'User Management', icon: 'people-circle-outline', color: 'primary' });
-      actions.push({ key: 'audit-logs', label: 'Audit Logs', icon: 'document-text-outline', color: 'secondary' });
-      actions.push({ key: 'bulk-upload', label: 'Bulk Upload', icon: 'cloud-upload-outline', color: 'tertiary' });
-      actions.push({ key: 'society-management', label: 'Society Management', icon: 'business-outline', color: 'success' });
-      actions.push({ key: 'security-users', label: 'Security Users', icon: 'shield-outline', color: 'warning' });
-      actions.push({ key: 'settings', label: 'Settings', icon: 'settings-outline', color: 'medium' });
-      actions.push({ key: 'announcements', label: 'Announcements', icon: 'megaphone-outline', color: 'warning' });
-      actions.push({ key: 'posts', label: 'Posts', icon: 'chatbubbles-outline', color: 'success' });
+      actions.push({ key: 'admin-users', label: this.t('dashboard.user_management', 'User Management'), icon: 'people-circle-outline', color: 'primary' });
+      actions.push({ key: 'audit-logs', label: this.t('dashboard.audit_logs', 'Audit Logs'), icon: 'document-text-outline', color: 'secondary' });
+      actions.push({ key: 'bulk-upload', label: this.t('dashboard.bulk_user_upload', 'Bulk Upload'), icon: 'cloud-upload-outline', color: 'tertiary' });
+      actions.push({ key: 'society-management', label: this.t('dashboard.society_management', 'Society Management'), icon: 'business-outline', color: 'success' });
+      actions.push({ key: 'security-users', label: this.t('dashboard.security_users', 'Security Users'), icon: 'shield-outline', color: 'warning' });
+      actions.push({ key: 'settings', label: this.t('dashboard.settings', 'Settings'), icon: 'settings-outline', color: 'medium' });
+      actions.push({ key: 'announcements', label: this.t('mobile.announcements', 'Announcements'), icon: 'megaphone-outline', color: 'warning' });
+      actions.push({ key: 'posts', label: this.t('mobile.posts', 'Posts'), icon: 'chatbubbles-outline', color: 'success' });
       return actions;
     }
 
     if (roleCategory === 'society-admin' && hasSociety) {
-      actions.push({ key: 'admin-users', label: 'User Management', icon: 'people-circle-outline', color: 'primary' });
-      actions.push({ key: 'bulk-upload', label: 'Bulk Upload', icon: 'cloud-upload-outline', color: 'tertiary' });
-      actions.push({ key: 'payments', label: 'Payments', icon: 'card-outline', color: 'success' });
-      actions.push({ key: 'maintenance', label: 'Maintenance', icon: 'home-outline', color: 'warning' });
-      actions.push({ key: 'security-users', label: 'Security Users', icon: 'shield-outline', color: 'secondary' });
-      actions.push({ key: 'requests', label: 'Guest Management', icon: 'walk-outline', color: 'danger', badge: this.pendingRequests.length || undefined });
-      actions.push({ key: 'announcements', label: 'Announcements', icon: 'megaphone-outline', color: 'warning' });
-      actions.push({ key: 'posts', label: 'Posts', icon: 'chatbubbles-outline', color: 'success' });
+      actions.push({ key: 'admin-users', label: this.t('dashboard.user_management', 'User Management'), icon: 'people-circle-outline', color: 'primary' });
+      actions.push({ key: 'bulk-upload', label: this.t('dashboard.bulk_user_upload', 'Bulk Upload'), icon: 'cloud-upload-outline', color: 'tertiary' });
+      actions.push({ key: 'payments', label: this.t('dashboard.payment_management', 'Payments'), icon: 'card-outline', color: 'success' });
+      actions.push({ key: 'maintenance', label: this.t('dashboard.maintenance_payment', 'Maintenance'), icon: 'home-outline', color: 'warning' });
+      actions.push({ key: 'security-users', label: this.t('dashboard.security_users', 'Security Users'), icon: 'shield-outline', color: 'secondary' });
+      actions.push({ key: 'requests', label: this.t('dashboard.guest_approvals', 'Guest Management'), icon: 'walk-outline', color: 'danger', badge: this.pendingRequests.length || undefined });
+      actions.push({ key: 'announcements', label: this.t('mobile.announcements', 'Announcements'), icon: 'megaphone-outline', color: 'warning' });
+      actions.push({ key: 'posts', label: this.t('mobile.posts', 'Posts'), icon: 'chatbubbles-outline', color: 'success' });
       return actions;
     }
 
-    actions.push({ key: 'marketplace', label: 'Market Place', icon: 'storefront-outline', color: 'success' });
-    actions.push({ key: 'cr-marketplace', label: 'CR Market Place', icon: 'restaurant-outline', color: 'warning' });
-    actions.push({ key: 'amenities', label: 'Amenities', icon: 'fitness-outline', color: 'tertiary' });
-    actions.push({ key: 'nobroker', label: 'NoBroker-Internal', icon: 'business-outline', color: 'primary' });
-    actions.push({ key: 'orders', label: 'Orders', icon: 'bag-handle-outline', color: 'secondary' });
-    actions.push({ key: 'bookings', label: 'Bookings', icon: 'calendar-number-outline', color: 'medium' });
-    actions.push({ key: 'requests', label: 'Guest Management', icon: 'walk-outline', color: 'danger', badge: this.pendingRequests.length || undefined });
-    actions.push({ key: 'user-directory', label: 'User Directory', icon: 'people-outline', color: 'primary' });
-    actions.push({ key: 'announcements', label: 'Announcements', icon: 'megaphone-outline', color: 'warning' });
-    actions.push({ key: 'posts', label: 'Posts', icon: 'chatbubbles-outline', color: 'success' });
-    if (hasSociety) actions.push({ key: 'preapprovals', label: 'Pre-Approvals', icon: 'shield-checkmark-outline', color: 'tertiary' });
+    actions.push({ key: 'marketplace', label: this.t('dashboard.marketplace', 'Market Place'), icon: 'storefront-outline', color: 'success' });
+    actions.push({ key: 'cr-marketplace', label: this.t('dashboard.cr_marketplace', 'CR Market Place'), icon: 'restaurant-outline', color: 'warning' });
+    actions.push({ key: 'amenities', label: this.t('dashboard.amenities', 'Amenities'), icon: 'fitness-outline', color: 'tertiary' });
+    actions.push({ key: 'nobroker', label: this.t('dashboard.nobroker_internal', 'NoBroker-Internal'), icon: 'business-outline', color: 'primary' });
+    actions.push({ key: 'orders', label: this.t('dashboard.orders', 'Orders'), icon: 'bag-handle-outline', color: 'secondary' });
+    actions.push({ key: 'bookings', label: this.t('dashboard.bookings', 'Bookings'), icon: 'calendar-number-outline', color: 'medium' });
+    actions.push({ key: 'requests', label: this.t('dashboard.guest_approvals', 'Guest Management'), icon: 'walk-outline', color: 'danger', badge: this.pendingRequests.length || undefined });
+    actions.push({ key: 'user-directory', label: this.t('dashboard.user_directory', 'User Directory'), icon: 'people-outline', color: 'primary' });
+    actions.push({ key: 'announcements', label: this.t('mobile.announcements', 'Announcements'), icon: 'megaphone-outline', color: 'warning' });
+    actions.push({ key: 'posts', label: this.t('mobile.posts', 'Posts'), icon: 'chatbubbles-outline', color: 'success' });
+    if (hasSociety) actions.push({ key: 'preapprovals', label: this.t('mobile.pre_approvals', 'Pre-Approvals'), icon: 'shield-checkmark-outline', color: 'tertiary' });
 
     return actions;
   }
@@ -478,33 +877,61 @@ export class CommunityPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Web-based features: open web dashboard directly without toast
-    if (actionKey === 'marketplace') { this.openWebDashboard('marketplace'); return; }
-    if (actionKey === 'cr-marketplace') { this.openWebDashboard('cr-marketplace'); return; }
-    if (actionKey === 'nobroker') { this.openWebDashboard('nobroker'); return; }
-    if (actionKey === 'orders') { this.openWebDashboard('orders'); return; }
-    if (actionKey === 'bookings') { this.openWebDashboard('bookings'); return; }
-    if (actionKey === 'user-directory') { this.openWebDashboard('directory'); return; }
+    if (actionKey === 'marketplace') { this.openWebRoute('/marketplace'); return; }
+    if (actionKey === 'cr-marketplace') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'cr-marketplace' }); return; }
+    if (actionKey === 'nobroker') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'nobroker' }); return; }
+    if (actionKey === 'orders') { this.openWebRoute('/marketplace', { view: 'orders' }); return; }
+    if (actionKey === 'bookings') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'bookings' }); return; }
+    if (actionKey === 'user-directory') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'directory' }); return; }
 
-    // Admin-only features: open web dashboard directly
-    if (actionKey === 'admin-users') { this.openWebDashboard('admin'); return; }
-    if (actionKey === 'audit-logs') { this.openWebDashboard('admin'); return; }
-    if (actionKey === 'bulk-upload') { this.openWebDashboard('admin'); return; }
-    if (actionKey === 'society-management') { this.openWebDashboard('admin'); return; }
-    if (actionKey === 'security-users') { this.openWebDashboard('admin'); return; }
-    if (actionKey === 'settings') { this.openWebDashboard('admin'); return; }
-    if (actionKey === 'payments') { this.openWebDashboard('admin'); return; }
-    if (actionKey === 'maintenance') { this.openWebDashboard('admin'); return; }
+    if (actionKey === 'admin-users') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'users' }); return; }
+    if (actionKey === 'audit-logs') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'audit' }); return; }
+    if (actionKey === 'bulk-upload') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'bulk-upload' }); return; }
+    if (actionKey === 'society-management') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'societies' }); return; }
+    if (actionKey === 'security-users') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'security-users' }); return; }
+    if (actionKey === 'settings') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'settings' }); return; }
+    if (actionKey === 'payments') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'payments' }); return; }
+    if (actionKey === 'maintenance') { this.openWebRoute('/dashboard-mfe', { launchTarget: 'maintenance' }); return; }
   }
 
-  /**
-   * Open web dashboard in external browser
-   */
-  private openWebDashboard(section?: string): void {
-    const dashboardUrl = 'http://localhost:4203/dashboard-mfe';
-    if (typeof window !== 'undefined' && window.open) {
-      window.open(dashboardUrl, '_blank');
+  private openWebRoute(path: string, extraParams?: Record<string, string>): void {
+    const user = this.auth.getCurrentUser();
+    const token = this.auth.getToken();
+    const host = this.getDashboardHost();
+
+    let url = `http://${host}:4203${path}`;
+    const params: string[] = [];
+    if (token) {
+      params.push(`token=${encodeURIComponent(token)}`);
     }
+    if (user) {
+      params.push(`user=${encodeURIComponent(JSON.stringify(user))}`);
+    }
+    if (extraParams) {
+      Object.entries(extraParams).forEach(([key, value]) => {
+        params.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+      });
+    }
+    if (params.length > 0) {
+      url += `?${params.join('&')}`;
+    }
+
+    if (typeof window !== 'undefined' && window.open) {
+      window.open(url, '_blank');
+    }
+  }
+
+  private getDashboardHost(): string {
+    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+    if (isAndroid) {
+      return '10.0.2.2';
+    }
+
+    if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+      return window.location.hostname;
+    }
+
+    return 'localhost';
   }
 
   getBreadcrumbTrail(): string {
@@ -529,7 +956,9 @@ export class CommunityPage implements OnInit, OnDestroy {
 
   selectMenuAmenity(amenity: string) {
     this.showMenuPanel = false;
-    this.openWebDashboard('amenities');
+    this.activeSegment = 'overview';
+    this.expandedMenuItems.add('amenities');
+    this.showToast(`${amenity} selected`, 'primary');
   }
 
   selectMenuCategory(categoryKey: string) {
@@ -617,22 +1046,91 @@ export class CommunityPage implements OnInit, OnDestroy {
     return 'person-outline';
   }
 
+  getServiceColorClass(req: ApprovalRequest | null): string {
+    const type = (req?.visitorType || '').toUpperCase();
+    if (type === 'DELIVERY') return 'popup-header-blue';
+    if (type === 'CAB') return 'popup-header-indigo';
+    if (type === 'VENDOR') return 'popup-header-green';
+    if (type === 'VISITING_HELP') return 'popup-header-yellow';
+    return 'popup-header-violet';
+  }
+
+  getVibgyorClass(type: string | undefined): string {
+    const visitorType = (type || '').toUpperCase();
+    if (visitorType === 'DELIVERY') return 'type-delivery';
+    if (visitorType === 'CAB') return 'type-cab';
+    if (visitorType === 'VENDOR') return 'type-vendor';
+    if (visitorType === 'VISITING_HELP') return 'type-help';
+    return 'type-guest';
+  }
+
+  getServicePersonName(req: ApprovalRequest | null): string {
+    if (!req) return '-';
+    return (req.visitorName || '').trim() || 'Unknown Visitor';
+  }
+
+  getVendorLogo(req: ApprovalRequest | null): string {
+    const subType = this.getVisitorSubTypeDisplay(req).toLowerCase();
+    const type = (req?.visitorType || '').toUpperCase();
+
+    if (type === 'DELIVERY') {
+      if (subType.includes('swiggy')) return 'SWG';
+      if (subType.includes('zomato')) return 'ZMT';
+      if (subType.includes('amazon')) return 'AMZ';
+      if (subType.includes('flipkart')) return 'FLP';
+      if (subType.includes('blinkit') || subType.includes('bigbasket')) return 'DLV';
+      return 'PKG';
+    }
+
+    if (type === 'CAB') {
+      if (subType.includes('uber')) return 'UBR';
+      if (subType.includes('ola')) return 'OLA';
+      if (subType.includes('rapido')) return 'RPD';
+      return 'CAB';
+    }
+
+    if (type === 'VENDOR') return 'VDR';
+    if (type === 'VISITING_HELP') return 'HLP';
+    return 'GST';
+  }
+
   getServiceDisplayName(req: ApprovalRequest | null): string {
     if (!req) return 'Visitor';
+    const typeLabel = this.getVisitorTypeLabel(req.visitorType);
+    const subType = this.getVisitorSubTypeDisplay(req);
+    return subType !== '-' ? `${typeLabel} - ${subType}` : typeLabel;
+  }
+
+  getVisitorTypeLabel(type: string | undefined): string {
+    const normalized = (type || '').toUpperCase();
+    if (normalized === 'DELIVERY') return 'Delivery';
+    if (normalized === 'CAB') return 'Cab';
+    if (normalized === 'VENDOR') return 'Vendor';
+    if (normalized === 'VISITING_HELP') return 'Visiting Help';
+    return 'Guest';
+  }
+
+  getVisitorSubTypeDisplay(req: ApprovalRequest | null): string {
+    if (!req) return '-';
+
+    const explicitSubType = (req.serviceSubCategory || '').trim();
+    if (explicitSubType) return explicitSubType;
+
     const type = (req.visitorType || '').toUpperCase();
     if (type === 'DELIVERY') {
       const service = req.deliveryService === 'Other' ? req.deliveryServiceOther : req.deliveryService;
       const resolved = service?.trim() ? service.trim() : this.inferService(req.purpose || req.visitorName || '');
-      return resolved ? 'Delivery - ' + resolved : 'Delivery';
+      return resolved || '-';
     }
+
     if (type === 'CAB') {
       const service = req.cabService === 'Other' ? req.cabServiceOther : req.cabService;
       const resolved = service?.trim() ? service.trim() : this.inferService(req.purpose || req.visitorName || '');
-      return resolved ? 'Cab - ' + resolved : 'Cab';
+      return resolved || '-';
     }
-    if (type === 'VENDOR') return 'Vendor';
-    if (type === 'VISITING_HELP') return 'Visiting Help';
-    return 'Guest';
+
+    const inferred = this.inferService(req.purpose || req.visitorName || '');
+    return inferred || '-';
   }
 
   private inferService(text: string): string {

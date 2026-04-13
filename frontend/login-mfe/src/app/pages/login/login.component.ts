@@ -2,6 +2,7 @@
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { HttpClient } from '@angular/common/http';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-login',
@@ -12,6 +13,11 @@ export class LoginComponent implements OnInit {
 
   // Login tabs
   activeLoginTab: 'credentials' | 'mobile' = 'credentials';
+  
+  // Language support
+  currentLanguage: string = 'EN';
+  languages: any[] = [];
+  showLanguageMenu: boolean = false;
 
   // Credentials login
   username: string = '';
@@ -50,7 +56,8 @@ export class LoginComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private http: HttpClient
+    private http: HttpClient,
+    private languageService: LanguageService
   ) { }
 
   ngOnInit(): void {
@@ -58,6 +65,11 @@ export class LoginComponent implements OnInit {
     document.body.style.padding = '0';
     this.generateCredentialsCaptcha();
     this.generateMobileCaptcha();
+    this.currentLanguage = this.languageService.getCurrentLanguage();
+    this.languages = this.languageService.getLanguages();
+    this.languageService.currentLanguage$.subscribe((lang: string) => {
+      this.currentLanguage = lang;
+    });
   }
 
   // Tab switching
@@ -70,6 +82,20 @@ export class LoginComponent implements OnInit {
     } else {
       this.generateMobileCaptcha();
     }
+  }
+  
+  setLanguage(code: string): void {
+    this.languageService.setLanguage(code);
+    this.currentLanguage = code;
+    this.showLanguageMenu = false;
+  }
+  
+  translate(key: string): string {
+    return this.languageService.translate(key);
+  }
+  
+  get currentLanguageLabel(): string {
+    return this.languages.find((lang) => lang.code === this.currentLanguage)?.label || 'English';
   }
 
   // Captcha generation

@@ -52,6 +52,13 @@
     </button>
     <button 
       class="tab-button" 
+      [class.active]="activeTab === 'bulk-invite'"
+      (click)="selectTab('bulk-invite')">
+      <span class="tab-icon">📨</span>
+      <span class="tab-label">Bulk Invite</span>
+    </button>
+    <button 
+      class="tab-button" 
       [class.active]="activeTab === 'payments'"
       (click)="selectTab('payments')">
       <span class="tab-icon">💳</span>
@@ -193,6 +200,107 @@
             <h3>File Ready: {{ uploadedFile.name }}</h3>
             <button class="upload-submit-btn" (click)="submitBulkUpload()">Upload Users</button>
             <button class="cancel-btn" (click)="clearUpload()">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bulk Invite Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'bulk-invite'">
+        <div class="bulk-invite-section">
+          <h2>Bulk Invite</h2>
+          <p class="section-description">Invite users using SMS, WhatsApp and Email with app download links.</p>
+
+          <div class="message-container">
+            <div class="success-message" *ngIf="inviteSuccessMessage">
+              <span class="message-icon">✓</span>
+              <span class="message-text">{{ inviteSuccessMessage }}</span>
+            </div>
+            <div class="error-message" *ngIf="inviteErrorMessage">
+              <span class="message-icon">✕</span>
+              <span class="message-text">{{ inviteErrorMessage }}</span>
+            </div>
+          </div>
+
+          <div class="invite-config-grid">
+            <div class="invite-card">
+              <h3>Channels</h3>
+              <label class="checkbox-row">
+                <input type="checkbox" [(ngModel)]="inviteSendSMS">
+                Send SMS
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" [(ngModel)]="inviteSendWhatsApp">
+                Send WhatsApp
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" [(ngModel)]="inviteSendEmail">
+                Send Email
+              </label>
+            </div>
+
+            <div class="invite-card">
+              <h3>App Links</h3>
+              <label>iOS App Link</label>
+              <input class="setting-input" type="text" [(ngModel)]="inviteIosLink" placeholder="https://apps.apple.com/...">
+              <label>Android App Link</label>
+              <input class="setting-input" type="text" [(ngModel)]="inviteAndroidLink" placeholder="https://play.google.com/store/...">
+              <label>Sender Name</label>
+              <input class="setting-input" type="text" [(ngModel)]="inviteSenderName" placeholder="NammaSociety Team">
+            </div>
+          </div>
+
+          <div class="invite-card invite-template">
+            <h3>Message Template</h3>
+            <p class="template-hint">Placeholders: {{'{{name}}'}}, {{'{{androidLink}}'}}, {{'{{iosLink}}'}}, {{'{{senderName}}'}}</p>
+            <textarea class="invite-textarea" [(ngModel)]="inviteMessageTemplate" rows="9"></textarea>
+            <div class="invite-template-actions">
+              <button class="upload-submit-btn" type="button" (click)="saveInviteTemplateConfig()">Save Template</button>
+              <button class="cancel-btn" type="button" (click)="resetInviteTemplateConfig()">Reset Default</button>
+            </div>
+          </div>
+
+          <div class="upload-area">
+            <div class="upload-box"
+              (dragover)="onInviteDragOver($event)"
+              (dragleave)="onInviteDragLeave($event)"
+              (drop)="onInviteFileDrop($event)"
+              [class.dragging]="isInviteDragging">
+              <div class="upload-icon">📮</div>
+              <h3>Drop contacts file here</h3>
+              <p>Upload CSV or Excel file</p>
+              <label class="upload-btn">
+                Select File
+                <input type="file" hidden (change)="onInviteFileSelected($event)" accept=".csv,.xlsx,.xls">
+              </label>
+              <p class="upload-info">Expected columns: name, phoneNumber, email</p>
+            </div>
+          </div>
+
+          <div class="template-section">
+            <h3>Invite File Template</h3>
+            <p>Download and fill the file with recipients for bulk invite.</p>
+            <button class="download-template-btn" (click)="downloadInviteTemplate()">📥 Download Invite Template</button>
+            <div class="template-preview">
+              <code>name,phoneNumber,email</code>
+            </div>
+          </div>
+
+          <div class="upload-preview" *ngIf="uploadedInviteFile">
+            <h3>File Ready: {{ uploadedInviteFile.name }}</h3>
+            <button class="upload-submit-btn" (click)="submitBulkInvite()" [disabled]="isInviting">
+              <span *ngIf="!isInviting">Send Invites</span>
+              <span *ngIf="isInviting">Sending...</span>
+            </button>
+            <button class="cancel-btn" (click)="clearInviteUpload()" [disabled]="isInviting">Cancel</button>
+          </div>
+
+          <div class="invite-summary" *ngIf="inviteSummary">
+            <h3>Delivery Summary</h3>
+            <p>Total contacts processed: <strong>{{ inviteSummary.totalContacts || 0 }}</strong></p>
+            <p>SMS sent: <strong>{{ inviteSummary.smsSent || 0 }}</strong></p>
+            <p>WhatsApp sent: <strong>{{ inviteSummary.whatsappSent || 0 }}</strong></p>
+            <p>Email sent: <strong>{{ inviteSummary.emailSent || 0 }}</strong></p>
+            <p>Failed recipients: <strong>{{ inviteSummary.failedCount || 0 }}</strong></p>
           </div>
         </div>
       </div>

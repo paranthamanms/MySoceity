@@ -5,7 +5,22 @@ import { ApprovalRequest, ApprovalLog, PreApproval, CommunityPost } from '../mod
 
 @Injectable({ providedIn: 'root' })
 export class GuestManagementService {
-  private apiUrl = 'http://10.0.2.2:8002/api';
+  private get apiHost(): string {
+    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+    if (isAndroid) {
+      return 'http://10.0.2.2';
+    }
+
+    if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+      return `http://${window.location.hostname}`;
+    }
+
+    return 'http://localhost';
+  }
+
+  private get apiUrl(): string {
+    return `${this.apiHost}:8002/api`;
+  }
 
   constructor(private http: HttpClient) {}
 
@@ -48,12 +63,19 @@ export class GuestManagementService {
     return this.http.get<ApprovalRequest[]>(`${this.apiUrl}/approval-requests/all`, { params });
   }
 
-  approveRequest(id: number, respondedBy: string, note?: string): Observable<any> {
-    return this.http.put(`${this.apiUrl}/approval-requests/${id}/approve`, { respondedBy, responseNote: note });
+  approveRequest(id: number, approvedBy: string, note: string = ''): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/approval-requests/${id}/approve`, {
+      approvedBy,
+      approvalMethod: 'DASHBOARD',
+      note
+    });
   }
 
-  rejectRequest(id: number, respondedBy: string, note?: string): Observable<any> {
-    return this.http.put(`${this.apiUrl}/approval-requests/${id}/reject`, { respondedBy, responseNote: note });
+  rejectRequest(id: number, rejectedBy: string, note: string = ''): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/approval-requests/${id}/reject`, {
+      rejectedBy,
+      note
+    });
   }
 
   // ========== Approval Logs ==========

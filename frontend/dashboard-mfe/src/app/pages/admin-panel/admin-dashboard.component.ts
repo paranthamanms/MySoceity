@@ -10,6 +10,9 @@ import { PaymentNotificationService } from '../../services/payment-notification.
 })
 export class AdminDashboardComponent implements OnInit {
 
+  private readonly inviteTemplateStorageKey: string = 'bulkInviteTemplateConfig';
+  private readonly defaultInviteMessageTemplate: string = 'Hi {{name}},\n\nYou are invited to join MySociety on NammaSociety.\n\nDownload the app:\nAndroid: {{androidLink}}\niOS: {{iosLink}}\n\nRegards,\n{{senderName}}';
+
   activeTab: string = 'overview';
   adminUser: any = null;
   isDragging: boolean = false;
@@ -21,6 +24,21 @@ export class AdminDashboardComponent implements OnInit {
   uploadSuccessMessage: string = '';
   uploadErrorMessage: string = '';
   isUploadingPayment: boolean = false;
+
+  // Bulk Invite
+  isInviteDragging: boolean = false;
+  uploadedInviteFile: File | null = null;
+  isInviting: boolean = false;
+  inviteSendSMS: boolean = true;
+  inviteSendWhatsApp: boolean = true;
+  inviteSendEmail: boolean = true;
+  inviteIosLink: string = 'https://apps.apple.com';
+  inviteAndroidLink: string = 'https://play.google.com/store';
+  inviteSenderName: string = 'NammaSociety Team';
+  inviteMessageTemplate: string = '';
+  inviteSuccessMessage: string = '';
+  inviteErrorMessage: string = '';
+  inviteSummary: any = null;
 
   // Overview Stats
   totalUsers: number = 0;
@@ -67,6 +85,7 @@ export class AdminDashboardComponent implements OnInit {
     this.loadAuditConfig();
     this.loadAdminStats();
     this.loadMaintenancePayments();
+    this.loadInviteTemplateConfig();
     // Subscribe to payment updates
     this.paymentNotificationService.paymentDataUpdated$.subscribe(() => {
       this.loadMaintenancePayments();
@@ -444,6 +463,170 @@ export class AdminDashboardComponent implements OnInit {
 
   clearUpload(): void {
     this.uploadedFile = null;
+  }
+
+  // Bulk Invite File Upload Methods
+  onInviteDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isInviteDragging = true;
+  }
+
+  onInviteDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isInviteDragging = false;
+  }
+
+  onInviteFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isInviteDragging = false;
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      this.processInviteFile(files[0]);
+    }
+  }
+
+  onInviteFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.processInviteFile(input.files[0]);
+    }
+  }
+
+  processInviteFile(file: File): void {
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.xlsx') && !lowerName.endsWith('.xls')) {
+      this.inviteErrorMessage = 'Please select a CSV or Excel file (.csv, .xlsx, .xls).';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    this.uploadedInviteFile = file;
+    this.inviteErrorMessage = '';
+  }
+
+  submitBulkInvite(): void {
+    if (!this.uploadedInviteFile) {
+      this.inviteErrorMessage = 'No invite contact file selected.';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    if (!this.inviteSendSMS && !this.inviteSendWhatsApp && !this.inviteSendEmail) {
+      this.inviteErrorMessage = 'Select at least one channel: SMS, WhatsApp, or Email.';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    if (!this.inviteMessageTemplate || !this.inviteMessageTemplate.trim()) {
+      this.inviteErrorMessage = 'Invite message template cannot be empty.';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    this.isInviting = true;
+    this.inviteErrorMessage = '';
+    this.inviteSuccessMessage = '';
+    this.inviteSummary = null;
+
+    const formData = new FormData();
+    formData.append('file', this.uploadedInviteFile, this.uploadedInviteFile.name);
+    formData.append('sendSMS', String(this.inviteSendSMS));
+    formData.append('sendWhatsApp', String(this.inviteSendWhatsApp));
+    formData.append('sendEmail', String(this.inviteSendEmail));
+    formData.append('iosLink', this.inviteIosLink || '');
+    formData.append('androidLink', this.inviteAndroidLink || '');
+    formData.append('senderName', this.inviteSenderName || 'NammaSociety Team');
+    formData.append('messageTemplate', this.inviteMessageTemplate || '');
+
+    this.http.post<any>('http://localhost:8002/api/user/invites/bulk', formData)
+      .subscribe({
+        next: (response) => {
+          this.isInviting = false;
+          if (response?.success) {
+            this.inviteSuccessMessage = response.message || 'Bulk invites sent successfully.';
+            this.inviteSummary = response;
+            this.saveInviteTemplateConfig(false);
+            this.clearInviteUpload();
+          } else {
+            this.inviteErrorMessage = response?.message || 'Bulk invite failed.';
+          }
+        },
+        error: (error) => {
+          this.isInviting = false;
+          this.inviteErrorMessage = error?.error?.message || 'Bulk invite failed. Please check your file and try again.';
+        }
+      });
+  }
+
+  clearInviteUpload(): void {
+    this.uploadedInviteFile = null;
+  }
+
+  saveInviteTemplateConfig(showAlert: boolean = true): void {
+    const payload = {
+      inviteIosLink: this.inviteIosLink,
+      inviteAndroidLink: this.inviteAndroidLink,
+      inviteSenderName: this.inviteSenderName,
+      inviteMessageTemplate: this.inviteMessageTemplate
+    };
+
+    localStorage.setItem(this.inviteTemplateStorageKey, JSON.stringify(payload));
+
+    if (showAlert) {
+      alert('Invite template saved successfully.');
+    }
+  }
+
+  resetInviteTemplateConfig(): void {
+    this.inviteIosLink = 'https://apps.apple.com';
+    this.inviteAndroidLink = 'https://play.google.com/store';
+    this.inviteSenderName = 'NammaSociety Team';
+    this.inviteMessageTemplate = this.defaultInviteMessageTemplate;
+    this.saveInviteTemplateConfig(false);
+  }
+
+  private loadInviteTemplateConfig(): void {
+    const saved = localStorage.getItem(this.inviteTemplateStorageKey);
+
+    if (!saved) {
+      this.inviteMessageTemplate = this.defaultInviteMessageTemplate;
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved);
+      this.inviteIosLink = parsed?.inviteIosLink || this.inviteIosLink;
+      this.inviteAndroidLink = parsed?.inviteAndroidLink || this.inviteAndroidLink;
+      this.inviteSenderName = parsed?.inviteSenderName || this.inviteSenderName;
+      this.inviteMessageTemplate = parsed?.inviteMessageTemplate || this.defaultInviteMessageTemplate;
+    } catch (error) {
+      console.warn('Failed to load saved invite template config. Falling back to default.', error);
+      this.inviteMessageTemplate = this.defaultInviteMessageTemplate;
+    }
+  }
+
+  downloadInviteTemplate(): void {
+    const headers = ['name', 'phoneNumber', 'email'];
+    const rows = [
+      ['Resident One', '9876543210', 'resident1@example.com'],
+      ['Resident Two', '9876500011', 'resident2@example.com'],
+      ['Resident Three', '', 'resident3@example.com']
+    ];
+
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'bulk_invite_template.csv');
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   // Payment File Upload Methods

@@ -1,7 +1,9 @@
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { LanguageService } from '../../services/language.service';
 
 interface BackendProduct {
   id: number;
@@ -42,7 +44,8 @@ const BANKS = [
 ];
 
 const EN = {
-  searchPlaceholder: 'Search AMP.in',
+  search: 'Search',
+  searchPlaceholder: 'Search on Nammasociety.in',
   allCategories: 'All Categories',
   accountLists: 'Account & Lists',
   returnsOrders: 'Returns & Orders',
@@ -54,7 +57,7 @@ const EN = {
   addToCart: 'Add to Cart',
   outOfStock: 'Out of Stock',
   soldBy: 'Sold by',
-  sellerPortal: 'Sell on AMP.in',
+  sellerPortal: 'Sell on Nammasociety.in',
   backToDashboard: 'Back',
   hello: 'Hello',
   browseProducts: 'Browse Products',
@@ -92,21 +95,8 @@ export class MarketplaceComponent implements OnInit, OnDestroy {
   user: any = null;
   activeView = 'browse';
 
-  languages = [
-    { code: 'en', label: 'English' },
-    { code: 'hi', label: 'Hindi' },
-    { code: 'ta', label: 'Tamil' },
-    { code: 'te', label: 'Telugu' },
-    { code: 'kn', label: 'Kannada' },
-    { code: 'ml', label: 'Malayalam' },
-    { code: 'bn', label: 'Bengali' },
-    { code: 'mr', label: 'Marathi' },
-    { code: 'gu', label: 'Gujarati' },
-    { code: 'pa', label: 'Punjabi' },
-    { code: 'or', label: 'Odia' },
-    { code: 'as', label: 'Assamese' }
-  ];
-  currentLang = 'en';
+  languages: Array<{ code: string; label: string }> = [];
+  currentLang = 'EN';
   t = EN;
   showLangMenu = false;
 
@@ -121,6 +111,7 @@ export class MarketplaceComponent implements OnInit, OnDestroy {
   showSuggestions = false;
   private searchSubject = new Subject<string>();
   private searchSub?: Subscription;
+  private languageSub?: Subscription;
 
   products: BackendProduct[] = [];
   loadingProducts = false;
@@ -165,7 +156,11 @@ export class MarketplaceComponent implements OnInit, OnDestroy {
     { id: 'others', name: 'Others', icon: 'Other' }
   ];
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private languageService: LanguageService,
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit(): void {
     this.loadUserData();
@@ -173,11 +168,13 @@ export class MarketplaceComponent implements OnInit, OnDestroy {
     this.loadProducts();
     this.loadSellers();
     this.setupSearch();
-
-    const savedLang = localStorage.getItem('amp_lang');
-    if (savedLang) {
-      this.currentLang = savedLang;
-    }
+    this.languages = this.languageService.getLanguages();
+    this.currentLang = this.languageService.getCurrentLanguage();
+    this.applyTranslations();
+    this.languageSub = this.languageService.currentLanguage$.subscribe((lang) => {
+      this.currentLang = lang;
+      this.applyTranslations();
+    });
 
     const savedLoc = localStorage.getItem('amp_delivery_location');
     if (savedLoc) {
@@ -185,10 +182,16 @@ export class MarketplaceComponent implements OnInit, OnDestroy {
       this.deliveryPincode = loc.pincode || '';
       this.deliveryCity = loc.city || 'India';
     }
+
+    const initialView = (this.route.snapshot.queryParamMap.get('view') || '').toLowerCase();
+    if (initialView === 'orders' || initialView === 'cart' || initialView === 'browse') {
+      this.switchView(initialView);
+    }
   }
 
   ngOnDestroy(): void {
     this.searchSub?.unsubscribe();
+    this.languageSub?.unsubscribe();
   }
 
   get currentLanguageLabel(): string {
@@ -203,9 +206,69 @@ export class MarketplaceComponent implements OnInit, OnDestroy {
   }
 
   setLanguage(code: string): void {
-    this.currentLang = code;
-    localStorage.setItem('amp_lang', code);
+    this.languageService.setLanguage(code);
     this.showLangMenu = false;
+  }
+
+  private applyTranslations(): void {
+    const pick = (key: string, fallback: string): string => {
+      const translated = this.languageService.translate(key);
+      if (translated && translated !== key) {
+        return translated;
+      }
+      return this.marketplaceFallback(this.currentLang, key, fallback);
+    };
+
+    this.t = {
+      ...EN,
+      search: pick('dashboard.search', EN.search),
+      cart: pick('dashboard.cart', EN.cart),
+      myOrders: pick('dashboard.orders', EN.myOrders),
+      backToDashboard: pick('marketplace.back', EN.backToDashboard),
+      signOut: pick('dashboard.logout', EN.signOut),
+      addToCart: pick('marketplace.add_to_cart', EN.addToCart),
+      searchPlaceholder: pick('marketplace.search_placeholder', EN.searchPlaceholder),
+      allCategories: pick('marketplace.all_categories', EN.allCategories),
+      chooseLocation: pick('marketplace.choose_location', EN.chooseLocation),
+      locationNote: pick('marketplace.location_note', EN.locationNote),
+      signInToUpdate: pick('marketplace.sign_in_to_update', EN.signInToUpdate),
+      updateLocation: pick('marketplace.update_location', EN.updateLocation),
+      useMyLocation: pick('marketplace.use_my_location', EN.useMyLocation),
+      noProducts: pick('marketplace.no_products', EN.noProducts),
+      proceedToCheckout: pick('marketplace.proceed_to_checkout', EN.proceedToCheckout),
+      orderSummary: pick('marketplace.order_summary', EN.orderSummary),
+      shoppingCart: pick('marketplace.shopping_cart', EN.shoppingCart),
+      browseProducts: pick('marketplace.browse_products', EN.browseProducts)
+    };
+  }
+
+  private marketplaceFallback(langCode: string, key: string, fallback: string): string {
+    const lang = (langCode || 'EN').toUpperCase();
+    const map: { [code: string]: { [k: string]: string } } = {
+      HI: {
+        'marketplace.add_to_cart': 'कार्ट में जोड़ें',
+        'marketplace.all_categories': 'सभी श्रेणियां',
+        'marketplace.choose_location': 'अपना स्थान चुनें',
+        'marketplace.update_location': 'लागू करें',
+        'marketplace.use_my_location': 'मेरा स्थान उपयोग करें',
+        'marketplace.shopping_cart': 'शॉपिंग कार्ट',
+        'marketplace.order_summary': 'ऑर्डर सारांश',
+        'marketplace.browse_products': 'उत्पाद देखें',
+        'marketplace.back': 'वापस'
+      },
+      TA: {
+        'marketplace.add_to_cart': 'கார்டில் சேர்',
+        'marketplace.all_categories': 'அனைத்து வகைகள்',
+        'marketplace.choose_location': 'உங்கள் இருப்பிடத்தை தேர்ந்தெடுக்கவும்',
+        'marketplace.update_location': 'பயன்படுத்து',
+        'marketplace.use_my_location': 'என் இருப்பிடத்தை பயன்படுத்தவும்',
+        'marketplace.shopping_cart': 'ஷாப்பிங் கார்ட்',
+        'marketplace.order_summary': 'ஆர்டர் சுருக்கம்',
+        'marketplace.browse_products': 'பொருட்களை பார்க்க',
+        'marketplace.back': 'பின்'
+      }
+    };
+    return map[lang]?.[key] || fallback;
   }
 
   openLocationPopup(): void {

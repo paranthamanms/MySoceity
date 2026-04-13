@@ -623,6 +623,34 @@
   flex-shrink: 0;
 }
 
+.header-language-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.header-language-picker label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.header-language-picker select {
+  min-width: 132px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.header-language-picker option {
+  color: #111827;
+}
+
 // Welcome Container - holds welcome message and property info
 .welcome-container {
   display: flex;
@@ -3073,6 +3101,98 @@
 .message-icon {
   font-weight: 700;
   font-size: 14px;
+}
+
+.bulk-invite-section {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.bulk-invite-section h2 {
+  margin: 0 0 10px 0;
+  font-size: 24px;
+  color: #2c3e50;
+}
+
+.invite-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.invite-card {
+  background: #f9fafb;
+  border: 1px solid #e8edf4;
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.invite-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #2c3e50;
+}
+
+.invite-card label {
+  display: block;
+  margin: 10px 0 6px;
+  color: #4a4a4a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.checkbox-row {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.invite-template {
+  margin-bottom: 20px;
+}
+
+.invite-textarea {
+  width: 100%;
+  border: 1px solid #d9e2ef;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.invite-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.invite-template-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.invite-summary {
+  margin-top: 20px;
+  background: #f5fbff;
+  border: 1px solid #cde7f8;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.invite-summary h3 {
+  margin: 0 0 10px 0;
+  color: #234;
+}
+
+.invite-summary p {
+  margin: 6px 0;
+  color: #345;
 }
 
 .payment-instructions {
@@ -7410,6 +7530,9 @@
 .approval-popup-overlay .popup-header-top {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -7420,6 +7543,19 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.2);
   color: inherit;
+}
+
+.approval-popup-overlay .visitor-subtype-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .approval-popup-overlay .popup-header-main {

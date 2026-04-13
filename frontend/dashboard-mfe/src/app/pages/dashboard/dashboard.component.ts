@@ -10,6 +10,7 @@ import { takeUntil } from 'rxjs/operators';
 import { PaymentNotificationService } from '../../services/payment-notification.service';
 import { GuestManagementService } from '../../services/guest-management.service';
 import { ApprovalRequest, ApprovalLog, PreApproval } from '../../models/approval.model';
+import { LanguageService } from '../../services/language.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -17,6 +18,10 @@ import { ApprovalRequest, ApprovalLog, PreApproval } from '../../models/approval
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private pendingLaunchTarget: string | null = null;
+  private readonly inviteTemplateStorageKey: string = 'bulkInviteTemplateConfig';
+  private readonly defaultInviteMessageTemplate: string = 'Hi {{name}},\n\nYou are invited to join MySociety on NammaSociety.\n\nDownload the app:\nAndroid: {{androidLink}}\niOS: {{iosLink}}\n\nRegards,\n{{senderName}}';
+
   // Popup timer for alarm
   popupTimer: number = 0;
 
@@ -48,26 +53,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return 'type-guest';
   }
 
-  getServiceDisplayName(request: ApprovalRequest | null): string {
-    if (!request) return 'Visitor';
-
-    const visitorType = (request.visitorType || '').toUpperCase();
-    if (visitorType === 'DELIVERY') {
-      const service = request.deliveryService === 'Other' ? request.deliveryServiceOther : request.deliveryService;
-      const resolvedService = service && service.trim() ? service.trim() : this.inferServiceFromText(request.visitorName || request.purpose || '');
-      return resolvedService ? `Delivery - ${resolvedService}` : 'Delivery';
-    }
-    if (visitorType === 'CAB') {
-      const service = request.cabService === 'Other' ? request.cabServiceOther : request.cabService;
-      const resolvedService = service && service.trim() ? service.trim() : this.inferServiceFromText(request.visitorName || request.purpose || '');
-      return resolvedService ? `Cab - ${resolvedService}` : 'Cab';
-    }
+  getVisitorTypeLabel(type: string | undefined): string {
+    const visitorType = (type || '').toUpperCase();
+    if (visitorType === 'DELIVERY') return 'Delivery';
+    if (visitorType === 'CAB') return 'Cab';
     if (visitorType === 'VENDOR') return 'Vendor';
     if (visitorType === 'VISITING_HELP') return 'Visiting Help';
     return 'Guest';
   }
 
-  getServicePersonName(request: ApprovalRequest | null): string {
+  getVisitorSubTypeDisplay(request: ApprovalRequest | ApprovalLog | null): string {
+    if (!request) return '-';
+    const subType = this.resolveVisitorSubType(request);
+    return subType && subType.trim() ? subType.trim() : '-';
+  }
+
+  getServiceDisplayName(request: ApprovalRequest | ApprovalLog | null): string {
+    if (!request) return 'Visitor';
+    const typeLabel = this.getVisitorTypeLabel(request.visitorType);
+    const subType = this.getVisitorSubTypeDisplay(request);
+    return subType !== '-' ? `${typeLabel} - ${subType}` : typeLabel;
+  }
+
+  getServicePersonName(request: ApprovalRequest | ApprovalLog | null): string {
     if (!request) return '-';
     const name = request.visitorName || '';
     return name.trim() || 'Unknown Visitor';
@@ -107,6 +115,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return '';
   }
 
+  private resolveVisitorSubType(request: ApprovalRequest | ApprovalLog): string {
+    const explicitSubType = (request.serviceSubCategory || '').trim();
+    if (explicitSubType) {
+      return explicitSubType;
+    }
+
+    const selectedService = this.getSelectedServiceName(request);
+    if (selectedService) {
+      return selectedService;
+    }
+
+    const purpose = 'purpose' in request ? (request as ApprovalRequest).purpose : '';
+    return this.inferServiceFromText(request.visitorName || purpose || '');
+  }
+
   // Maintenance Payment Data - will be loaded from backend
   maintenanceQuarters: any[] = [];
 
@@ -124,6 +147,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   uploadSuccessMessage: string = '';
   uploadErrorMessage: string = '';
   isUploadingPayment: boolean = false;
+
+  // Bulk Invite
+  isInviteDragging: boolean = false;
+  uploadedInviteFile: File | null = null;
+  isInviting: boolean = false;
+  inviteSendSMS: boolean = true;
+  inviteSendWhatsApp: boolean = true;
+  inviteSendEmail: boolean = true;
+  inviteIosLink: string = 'https://apps.apple.com';
+  inviteAndroidLink: string = 'https://play.google.com/store';
+  inviteSenderName: string = 'NammaSociety Team';
+  inviteMessageTemplate: string = '';
+  inviteSuccessMessage: string = '';
+  inviteErrorMessage: string = '';
+  inviteSummary: any = null;
 
   // Admin Overview Stats
   totalUsers: number = 0;
@@ -499,6 +537,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showAnnouncementNotifications: boolean = false;
   recentAnnouncements: any[] = [];
   lastAnnouncementCheck: number = 0;
+  currentLanguage: string = 'EN';
+  languages: any[] = [];
 
   constructor(
     private authService: AuthService,
@@ -507,13 +547,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private paymentNotificationService: PaymentNotificationService,
     private guestManagementService: GuestManagementService,
     private elementRef: ElementRef,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
+    private languageService: LanguageService
   ) { }
 
   ngOnInit(): void {
     console.log('DashboardComponent.ngOnInit() called');
+    this.languages = this.languageService.getLanguages();
+    this.currentLanguage = this.languageService.getCurrentLanguage();
+    this.languageService.currentLanguage$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((lang) => {
+        this.currentLanguage = lang;
+      });
     this.visitorEntryPublicBaseUrl = (localStorage.getItem('visitorEntryPublicBaseUrl') || '').trim();
+    this.loadInviteTemplateConfig();
     this.loadUserData();
+    this.applyPendingLaunchTarget();
     this.loadAdminStats();
     this.loadPaymentData();
     this.loadAdminConsolidatedPayments();
@@ -532,16 +582,93 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.loadMaintenancePayments();
       });
     console.log('✓ Subscription to payment data updates established');
-    // Start polling for new approval requests (for non-admin, non-security users)
+    // Start approval request polling with a longer interval to reduce UI jitter.
     setTimeout(() => {
       if (this.user && !this.isAdminUser() && !this.isSecurityGuard()) {
-        console.log('[Pop-up Polling] Starting approval request polling for user:',  this.user.username);
-        console.log('[Pop-up Polling] Apartment:', this.user.towerNumber + '-' + this.user.flatNumber, 'Society:', this.user.societyName);
         this.startApprovalRequestPolling();
-      } else {
-        console.log('[Pop-up Polling] Skipping polling - user is admin/security or not loaded');
       }
     }, 2000);
+  }
+
+  setLanguage(code: string): void {
+    this.languageService.setLanguage(code);
+    this.currentLanguage = code;
+  }
+
+  translate(key: string, fallback: string): string {
+    const value = this.languageService.translate(key);
+    if (value && value !== key) {
+      return value;
+    }
+    return this.translateDashboardFallback(key, fallback);
+  }
+
+  private translateDashboardFallback(key: string, fallback: string): string {
+    const lang = (this.currentLanguage || 'EN').toUpperCase();
+    const map: { [code: string]: { [labelKey: string]: string } } = {
+      EN: {
+        'dashboard.dashboard_view': 'Dashboard View',
+        'dashboard.user_management': 'User Management',
+        'dashboard.audit_logs': 'Audit Logs',
+        'dashboard.bulk_user_upload': 'Bulk User Upload',
+        'dashboard.payment_management': 'Payment Management',
+        'dashboard.maintenance_payment': 'Maintenance Payment',
+        'dashboard.society_announcements': 'Society Announcements',
+        'dashboard.admin_users': 'Admin Users',
+        'dashboard.security_users': 'Security Users',
+        'dashboard.society_management': 'Society Management',
+        'dashboard.settings': 'Settings',
+        'dashboard.quick_access': 'Quick Access',
+        'dashboard.user_directory': 'User Directory',
+        'dashboard.global_players': 'Global Players',
+        'dashboard.cr_marketplace': 'CR Market Place',
+        'dashboard.amenities': 'Amenities',
+        'dashboard.nobroker_internal': 'NoBroker-Internal',
+        'dashboard.bookings': 'Bookings'
+      },
+      HI: {
+        'dashboard.dashboard_view': 'डैशबोर्ड दृश्य',
+        'dashboard.user_management': 'उपयोगकर्ता प्रबंधन',
+        'dashboard.audit_logs': 'ऑडिट लॉग्स',
+        'dashboard.bulk_user_upload': 'बल्क उपयोगकर्ता अपलोड',
+        'dashboard.payment_management': 'भुगतान प्रबंधन',
+        'dashboard.maintenance_payment': 'मेंटेनेंस भुगतान',
+        'dashboard.society_announcements': 'सोसाइटी घोषणाएं',
+        'dashboard.admin_users': 'एडमिन उपयोगकर्ता',
+        'dashboard.security_users': 'सिक्योरिटी उपयोगकर्ता',
+        'dashboard.society_management': 'सोसाइटी प्रबंधन',
+        'dashboard.settings': 'सेटिंग्स',
+        'dashboard.quick_access': 'त्वरित पहुँच',
+        'dashboard.user_directory': 'यूज़र डायरेक्टरी',
+        'dashboard.global_players': 'ग्लोबल प्लेयर्स',
+        'dashboard.cr_marketplace': 'सीआर मार्केट प्लेस',
+        'dashboard.amenities': 'सुविधाएं',
+        'dashboard.nobroker_internal': 'नोब्रोकर-इंटरनल',
+        'dashboard.bookings': 'बुकिंग्स'
+      },
+      TA: {
+        'dashboard.dashboard_view': 'டாஷ்போர்டு காட்சி',
+        'dashboard.user_management': 'பயனர் மேலாண்மை',
+        'dashboard.audit_logs': 'ஆடிட் பதிவுகள்',
+        'dashboard.bulk_user_upload': 'பயனர் தொகுதி பதிவேற்றம்',
+        'dashboard.payment_management': 'கட்டண மேலாண்மை',
+        'dashboard.maintenance_payment': 'பராமரிப்பு கட்டணம்',
+        'dashboard.society_announcements': 'சொசைட்டி அறிவிப்புகள்',
+        'dashboard.admin_users': 'நிர்வாக பயனர்கள்',
+        'dashboard.security_users': 'பாதுகாப்பு பயனர்கள்',
+        'dashboard.society_management': 'சொசைட்டி மேலாண்மை',
+        'dashboard.settings': 'அமைப்புகள்',
+        'dashboard.quick_access': 'விரைவு அணுகல்',
+        'dashboard.user_directory': 'பயனர் அடைவு',
+        'dashboard.global_players': 'உலகளாவிய பிளேயர்கள்',
+        'dashboard.cr_marketplace': 'சிஆர் மார்க்கெட் பிளேஸ்',
+        'dashboard.amenities': 'வசதிகள்',
+        'dashboard.nobroker_internal': 'நோப்ரோக்கர்-இன்டர்னல்',
+        'dashboard.bookings': 'முன்பதிவுகள்'
+      }
+    };
+
+    return map[lang]?.[key] || map['EN'][key] || fallback;
   }
 
   loadUserData(): void {
@@ -549,6 +676,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // So we must first hydrate user/token from query params passed by login-mfe.
     const userFromQuery = this.activatedRoute.snapshot.queryParamMap.get('user');
     const tokenFromQuery = this.activatedRoute.snapshot.queryParamMap.get('token');
+    this.pendingLaunchTarget = this.activatedRoute.snapshot.queryParamMap.get('launchTarget');
 
     if (userFromQuery) {
       try {
@@ -591,6 +719,96 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
     } else {
       window.location.href = 'http://localhost:4201/login-mfe';
+    }
+  }
+
+  private applyPendingLaunchTarget(): void {
+    if (!this.pendingLaunchTarget) {
+      return;
+    }
+
+    const launchTarget = this.pendingLaunchTarget;
+    this.pendingLaunchTarget = null;
+
+    setTimeout(() => this.launchFeature(launchTarget), 0);
+  }
+
+  private launchFeature(target: string): void {
+    switch ((target || '').toLowerCase()) {
+      case 'marketplace':
+        this.navigateToMarketplace();
+        return;
+      case 'cr-marketplace':
+        this.openCRMarketplace();
+        return;
+      case 'cr-marketplace-orders':
+        this.openCRMarketplace();
+        this.switchCRView('orders');
+        return;
+      case 'nobroker':
+        this.openRealEstateModal('buy');
+        return;
+      case 'orders':
+        this.router.navigate(['/marketplace'], { queryParams: { view: 'orders' } });
+        return;
+      case 'bookings':
+      case 'amenities':
+        this.openAmenitiesModal();
+        return;
+      case 'directory':
+      case 'user-directory':
+        this.openUserDirectory();
+        return;
+      case 'requests':
+      case 'guest-management':
+        this.openGuestManagementModal();
+        return;
+      case 'announcements':
+        this.selectPostType('announcements');
+        return;
+      case 'posts':
+      case 'community':
+        this.selectPostType('community');
+        return;
+      case 'overview':
+        this.selectAdminTab('overview');
+        return;
+      case 'bulk-invite':
+      case 'invites':
+        this.selectAdminTab('bulk-invite');
+        return;
+      case 'users':
+      case 'admin-users':
+        this.selectAdminTab('users');
+        return;
+      case 'audit':
+      case 'audit-logs':
+        this.selectAdminTab('audit');
+        return;
+      case 'bulk-upload':
+        this.selectAdminTab('bulk-upload');
+        return;
+      case 'payments':
+        this.selectAdminTab('payments');
+        return;
+      case 'maintenance':
+        this.selectAdminTab('maintenance');
+        return;
+      case 'society-announcements':
+        this.selectAdminTab('society-announcements');
+        return;
+      case 'security-users':
+        this.selectAdminTab('security-users');
+        return;
+      case 'societies':
+      case 'society-management':
+        this.selectAdminTab('societies');
+        return;
+      case 'settings':
+        this.selectAdminTab('settings');
+        return;
+      default:
+        return;
     }
   }
 
@@ -2314,6 +2532,169 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   clearUpload(): void {
     this.uploadedFile = null;
+  }
+
+  onInviteDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isInviteDragging = true;
+  }
+
+  onInviteDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isInviteDragging = false;
+  }
+
+  onInviteFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isInviteDragging = false;
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      this.processInviteFile(files[0]);
+    }
+  }
+
+  onInviteFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.processInviteFile(input.files[0]);
+    }
+  }
+
+  processInviteFile(file: File): void {
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith('.csv') && !lowerName.endsWith('.xlsx') && !lowerName.endsWith('.xls')) {
+      this.inviteErrorMessage = 'Please select a CSV or Excel file (.csv, .xlsx, .xls).';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    this.uploadedInviteFile = file;
+    this.inviteErrorMessage = '';
+  }
+
+  submitBulkInvite(): void {
+    if (!this.uploadedInviteFile) {
+      this.inviteErrorMessage = 'No invite contact file selected.';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    if (!this.inviteSendSMS && !this.inviteSendWhatsApp && !this.inviteSendEmail) {
+      this.inviteErrorMessage = 'Select at least one channel: SMS, WhatsApp, or Email.';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    if (!this.inviteMessageTemplate || !this.inviteMessageTemplate.trim()) {
+      this.inviteErrorMessage = 'Invite message template cannot be empty.';
+      this.inviteSuccessMessage = '';
+      return;
+    }
+
+    this.isInviting = true;
+    this.inviteErrorMessage = '';
+    this.inviteSuccessMessage = '';
+    this.inviteSummary = null;
+
+    const formData = new FormData();
+    formData.append('file', this.uploadedInviteFile, this.uploadedInviteFile.name);
+    formData.append('sendSMS', String(this.inviteSendSMS));
+    formData.append('sendWhatsApp', String(this.inviteSendWhatsApp));
+    formData.append('sendEmail', String(this.inviteSendEmail));
+    formData.append('iosLink', this.inviteIosLink || '');
+    formData.append('androidLink', this.inviteAndroidLink || '');
+    formData.append('senderName', this.inviteSenderName || 'NammaSociety Team');
+    formData.append('messageTemplate', this.inviteMessageTemplate || '');
+
+    this.http.post<any>('http://localhost:8002/api/user/invites/bulk', formData)
+      .subscribe({
+        next: (response) => {
+          this.isInviting = false;
+          if (response?.success) {
+            this.inviteSuccessMessage = response.message || 'Bulk invites sent successfully.';
+            this.inviteSummary = response;
+            this.saveInviteTemplateConfig(false);
+            this.clearInviteUpload();
+          } else {
+            this.inviteErrorMessage = response?.message || 'Bulk invite failed.';
+          }
+        },
+        error: (error) => {
+          this.isInviting = false;
+          this.inviteErrorMessage = error?.error?.message || 'Bulk invite failed. Please check your file and try again.';
+        }
+      });
+  }
+
+  clearInviteUpload(): void {
+    this.uploadedInviteFile = null;
+  }
+
+  saveInviteTemplateConfig(showAlert: boolean = true): void {
+    const payload = {
+      inviteIosLink: this.inviteIosLink,
+      inviteAndroidLink: this.inviteAndroidLink,
+      inviteSenderName: this.inviteSenderName,
+      inviteMessageTemplate: this.inviteMessageTemplate
+    };
+
+    localStorage.setItem(this.inviteTemplateStorageKey, JSON.stringify(payload));
+
+    if (showAlert) {
+      alert('Invite template saved successfully.');
+    }
+  }
+
+  resetInviteTemplateConfig(): void {
+    this.inviteIosLink = 'https://apps.apple.com';
+    this.inviteAndroidLink = 'https://play.google.com/store';
+    this.inviteSenderName = 'NammaSociety Team';
+    this.inviteMessageTemplate = this.defaultInviteMessageTemplate;
+    this.saveInviteTemplateConfig(false);
+  }
+
+  private loadInviteTemplateConfig(): void {
+    const saved = localStorage.getItem(this.inviteTemplateStorageKey);
+
+    if (!saved) {
+      this.inviteMessageTemplate = this.defaultInviteMessageTemplate;
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved);
+      this.inviteIosLink = parsed?.inviteIosLink || this.inviteIosLink;
+      this.inviteAndroidLink = parsed?.inviteAndroidLink || this.inviteAndroidLink;
+      this.inviteSenderName = parsed?.inviteSenderName || this.inviteSenderName;
+      this.inviteMessageTemplate = parsed?.inviteMessageTemplate || this.defaultInviteMessageTemplate;
+    } catch (error) {
+      console.warn('Failed to load saved invite template config. Falling back to default.', error);
+      this.inviteMessageTemplate = this.defaultInviteMessageTemplate;
+    }
+  }
+
+  downloadInviteTemplate(): void {
+    const headers = ['name', 'phoneNumber', 'email'];
+    const rows = [
+      ['Resident One', '9876543210', 'resident1@example.com'],
+      ['Resident Two', '9876500011', 'resident2@example.com'],
+      ['Resident Three', '', 'resident3@example.com']
+    ];
+
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'bulk_invite_template.csv');
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   // Payment File Upload Methods
@@ -4823,10 +5204,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // Initial load
     this.checkForNewApprovalRequests();
     
-    // Poll every 10 seconds
+    // Poll every 120 seconds for minimal UI jitter
     this.pollingInterval = setInterval(() => {
       this.checkForNewApprovalRequests();
-    }, 10000);
+    }, 120000);
   }
   
   /**

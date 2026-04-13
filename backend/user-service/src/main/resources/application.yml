@@ -77,6 +77,18 @@ notification:
     from-name: NammaSociety
   sms:
     enabled: true
+  invite:
+    default-template: |-
+      Hi {{name}},
+
+      You are invited to join MySociety on NammaSociety.
+
+      Download the app:
+      Android: {{androidLink}}
+      iOS: {{iosLink}}
+
+      Regards,
+      {{senderName}}
 
 logging:
   level:

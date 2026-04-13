@@ -9,6 +9,23 @@
           <span class="logo-tagline">Smart Living, Simplified ✨</span>
         </div>
       </div>
+      <div style="position: absolute; right: 20px; top: 15px;">
+        <button class="lang-button" (click)="showLanguageMenu = !showLanguageMenu" 
+          style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff; color: #5c2e3e; border: 2px solid #5c2e3e; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+          <span style="font-size: 18px;">🌐</span> {{ currentLanguageLabel }}
+        </button>
+        <div class="lang-menu" *ngIf="showLanguageMenu" 
+          style="position: absolute; top: 100%; right: 0; margin-top: 5px; background: white; border: 2px solid #5c2e3e; border-radius: 6px; box-shadow: 0 4px 12px rgba(92, 46, 62, 0.15); z-index: 200; min-width: 150px; overflow: hidden;">
+          <button 
+            *ngFor="let lang of languages"
+            class="lang-option"
+            [class.active]="lang.code === currentLanguage"
+            (click)="setLanguage(lang.code)"
+            style="display: block; width: 100%; padding: 10px 12px; background: white; color: #5c2e3e; border: none; cursor: pointer; font-size: 13px; text-align: left; font-family: inherit;">
+            {{ lang.label }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -17,6 +34,7 @@
     <div class="login-box">
       <div class="login-form-container">
         <h1>Login to NammaSociety</h1>
+          <h1>{{ translate('login.title') }}</h1>
         
         <!-- Login Tabs -->
         <div class="login-tabs">
@@ -25,63 +43,63 @@
             [class.active]="activeLoginTab === 'credentials'"
             (click)="switchLoginTab('credentials')">
             <span class="tab-icon">👤</span>
-            Username & Password
+            {{ translate('login.username_password') }}
           </button>
           <button 
             class="tab-button" 
             [class.active]="activeLoginTab === 'mobile'"
             (click)="switchLoginTab('mobile')">
             <span class="tab-icon">📱</span>
-            Mobile & OTP
+            {{ translate('login.mobile_otp') }}
           </button>
         </div>
 
         <!-- Credentials Login Form -->
         <form *ngIf="activeLoginTab === 'credentials'" (ngSubmit)="login()" #loginForm="ngForm">
           <div class="form-group">
-            <label for="username">Username <span class="required">*</span></label>
+              <label for="username">{{ translate('login.username') }} <span class="required">*</span></label>
             <input 
               type="text" 
               id="username" 
               name="username"
               [(ngModel)]="username"
-              placeholder="Enter your username"
+                [placeholder]="translate('login.username')"
               (keypress)="handleKeyPress($event)"
               required>
           </div>
 
           <div class="form-group">
-            <label for="password">Password <span class="required">*</span></label>
+              <label for="password">{{ translate('login.password') }} <span class="required">*</span></label>
             <input 
               type="password" 
               id="password" 
               name="password"
               [(ngModel)]="password"
-              placeholder="Enter your password"
+                [placeholder]="translate('login.password')"
               (keypress)="handleKeyPress($event)"
               required>
           </div>
 
           <!-- Captcha -->
           <div class="form-group captcha-group">
-            <label>Enter Captcha <span class="required">*</span></label>
+            <label>{{ translate('login.captcha') }} <span class="required">*</span></label>
             <div class="captcha-display-wrapper">
               <div class="captcha-display">{{ generatedCredentialsCaptcha }}</div>
               <button type="button" class="captcha-refresh-btn" (click)="generateCredentialsCaptcha()" title="Refresh Captcha">
-                Refresh
+                {{ translate('common.cancel') }}
               </button>
             </div>
             <input 
               type="text" 
               name="captcha"
               [(ngModel)]="credentialsCaptcha"
-              placeholder="Enter captcha code"
+              [placeholder]="translate('login.captcha')"
               maxlength="6"
               required>
           </div>
 
           <div class="forgot-password-link">
-            <a href="javascript:void(0)" (click)="openForgotPasswordModal()">Forgot Password?</a>
+            <a href="javascript:void(0)" (click)="openForgotPasswordModal()">{{ translate('login.forgot_password') }}</a>
           </div>
 
           <div class="error-message" *ngIf="error && activeLoginTab === 'credentials'">
@@ -96,20 +114,20 @@
             type="submit" 
             class="login-btn"
             [disabled]="loading">
-            {{ loading ? 'Logging in...' : 'Login' }}
+            {{ loading ? translate('common.loading') : translate('login.login_button') }}
           </button>
         </form>
 
         <!-- Mobile OTP Login Form -->
         <form *ngIf="activeLoginTab === 'mobile'" (ngSubmit)="otpSent ? verifyOTP() : sendOTP()" #mobileForm="ngForm">
           <div class="form-group">
-            <label for="mobileNumber">Mobile Number <span class="required">*</span></label>
+            <label for="mobileNumber">{{ translate('login.mobile_number') }} <span class="required">*</span></label>
             <input 
               type="tel" 
               id="mobileNumber" 
               name="mobileNumber"
               [(ngModel)]="mobileNumber"
-              placeholder="Enter 10-digit mobile number"
+              [placeholder]="translate('login.mobile_number')"
               maxlength="10"
               pattern="[0-9]{10}"
               [disabled]="otpSent"
@@ -118,45 +136,45 @@
           </div>
 
           <div class="form-group" *ngIf="otpSent">
-            <label for="otp">Enter OTP <span class="required">*</span></label>
+            <label for="otp">{{ translate('login.otp') }} <span class="required">*</span></label>
             <input 
               type="text" 
               id="otp" 
               name="otp"
               [(ngModel)]="otp"
-              placeholder="Enter 6-digit OTP"
+              [placeholder]="translate('login.otp')"
               maxlength="6"
               pattern="[0-9]{6}"
               (keypress)="handleKeyPress($event)"
               required>
             <div class="otp-timer" *ngIf="otpTimer > 0">
-              OTP expires in {{ otpTimer }} seconds
+              {{ translate('login.otp') }} {{ translate('common.loading') | slice:0:-4 }} {{ otpTimer }} {{ translate('common.cancel') }}
             </div>
             <div class="resend-otp" *ngIf="otpTimer === 0">
-              <a href="javascript:void(0)" (click)="resendOTP()">Resend OTP</a>
+              <a href="javascript:void(0)" (click)="resendOTP()">{{ translate('login.send_otp') }}</a>
             </div>
           </div>
 
           <!-- Captcha (only shown when sending OTP) -->
           <div class="form-group captcha-group" *ngIf="!otpSent">
-            <label>Enter Captcha <span class="required">*</span></label>
+            <label>{{ translate('login.captcha') }} <span class="required">*</span></label>
             <div class="captcha-display-wrapper">
               <div class="captcha-display">{{ generatedMobileCaptcha }}</div>
               <button type="button" class="captcha-refresh-btn" (click)="generateMobileCaptcha()" title="Refresh Captcha">
-                Refresh
+                  {{ translate('common.cancel') }}
               </button>
             </div>
             <input 
               type="text" 
               name="mobileCaptcha"
               [(ngModel)]="mobileCaptcha"
-              placeholder="Enter captcha code"
+                [placeholder]="translate('login.captcha')"
               maxlength="6"
               required>
           </div>
 
           <div class="forgot-password-link" *ngIf="!otpSent">
-            <a href="javascript:void(0)" (click)="openForgotPasswordModal()">Forgot Password?</a>
+              <a href="javascript:void(0)" (click)="openForgotPasswordModal()">{{ translate('login.forgot_password') }}</a>
           </div>
 
           <div class="error-message" *ngIf="error && activeLoginTab === 'mobile'">
@@ -170,8 +188,8 @@
           <button 
             type="submit" 
             class="login-btn"
-            [disabled]="loading">
-            {{ loading ? 'Processing...' : (otpSent ? 'Verify OTP & Login' : 'Send OTP') }}
+              [disabled]="loading">
+              {{ loading ? translate('common.loading') : (otpSent ? translate('login.verify_otp') : translate('login.send_otp')) }}
           </button>
         </form>
 

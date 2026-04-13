@@ -7,8 +7,28 @@ import { UserProfile } from '../models/approval.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private authUrl = 'http://10.0.2.2:8001/api/auth';
-  private userUrl = 'http://10.0.2.2:8002/api';
+  private get apiHost(): string {
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+
+    if (/Android/i.test(userAgent) && !/Mac OS X/i.test(userAgent)) {
+      return 'http://10.0.2.2';
+    }
+
+    if (hostname && hostname !== '0.0.0.0') {
+      return `http://${hostname}`;
+    }
+
+    return 'http://localhost';
+  }
+
+  private get authUrl(): string {
+    return `${this.apiHost}:8001/api/auth`;
+  }
+
+  private get userUrl(): string {
+    return `${this.apiHost}:8002/api`;
+  }
 
   constructor(private http: HttpClient) {}
 

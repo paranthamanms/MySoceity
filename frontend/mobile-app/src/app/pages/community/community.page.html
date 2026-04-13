@@ -7,6 +7,11 @@
       </div>
     </ion-title>
     <ion-buttons slot="end">
+      <ion-item lines="none" class="language-select-item">
+        <ion-select [ngModel]="currentLanguage" (ngModelChange)="languageService.setLanguage($event)" interface="popover">
+          <ion-select-option *ngFor="let lang of languageService.getLanguages()" [value]="lang.code">{{ lang.label }}</ion-select-option>
+        </ion-select>
+      </ion-item>
       <ion-button (click)="loadSummary()" fill="clear">
         <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
       </ion-button>
@@ -24,16 +29,16 @@
   </div>
 
   <ion-segment [value]="activeSegment" (ionChange)="onSegmentChange($event)" class="community-segment">
-    <ion-segment-button value="overview"><ion-label>Home</ion-label></ion-segment-button>
+    <ion-segment-button value="overview"><ion-label>{{ t('mobile.home', 'Home') }}</ion-label></ion-segment-button>
     <ion-segment-button value="requests">
       <ion-label>
-        Requests
+        {{ t('mobile.requests', 'Requests') }}
         <ion-badge *ngIf="pendingRequests.length > 0" color="danger">{{ pendingRequests.length }}</ion-badge>
       </ion-label>
     </ion-segment-button>
-    <ion-segment-button value="logs"><ion-label>Logs</ion-label></ion-segment-button>
-    <ion-segment-button value="preapprovals"><ion-label>Pre-Approved</ion-label></ion-segment-button>
-    <ion-segment-button value="posts"><ion-label>Posts</ion-label></ion-segment-button>
+    <ion-segment-button value="logs"><ion-label>{{ t('mobile.logs', 'Logs') }}</ion-label></ion-segment-button>
+    <ion-segment-button value="preapprovals"><ion-label>{{ t('mobile.pre_approved', 'Pre-Approved') }}</ion-label></ion-segment-button>
+    <ion-segment-button value="posts"><ion-label>{{ t('mobile.posts', 'Posts') }}</ion-label></ion-segment-button>
   </ion-segment>
 </ion-header>
 
@@ -42,7 +47,7 @@
   <div class="menu-breadcrumb-bar">
     <ion-button size="small" fill="solid" color="light" class="menu-btn" (click)="toggleMenuPanel()">
       <ion-icon name="menu-outline" slot="start"></ion-icon>
-      Menu
+      {{ t('mobile.menu', 'Menu') }}
     </ion-button>
     <div class="breadcrumb-text">{{ getBreadcrumbTrail() }}</div>
   </div>
@@ -56,50 +61,50 @@
     <div class="menu-actions">
       <ion-button expand="block" fill="outline" (click)="viewProfile()">
         <ion-icon name="person-outline" slot="start"></ion-icon>
-        User Profile
+        {{ t('dashboard.profile', 'User Profile') }}
       </ion-button>
       <ion-button expand="block" fill="outline" (click)="resetPassword()">
         <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
-        Password Reset
+        {{ t('mobile.password_reset', 'Password Reset') }}
       </ion-button>
       <ion-button expand="block" color="danger" class="logout-cta" (click)="logout()">
         <ion-icon name="log-out-outline" slot="start"></ion-icon>
-        Logout
+        {{ t('dashboard.logout', 'Logout') }}
       </ion-button>
     </div>
   </div>
 
   <div class="ad-space">
-    <div class="ad-placeholder">Advertisement Space</div>
+    <div class="ad-placeholder">{{ t('mobile.ad_space', 'Advertisement Space') }}</div>
   </div>
 
   <!-- ===== OVERVIEW TAB ===== -->
   <div *ngIf="activeSegment === 'overview'">
     <!-- Hierarchical Menu -->
-    <div class="section-title">Menu</div>
+    <div class="section-title">{{ t('mobile.menu', 'Menu') }}</div>
     <div class="hierarchical-menu">
       <!-- Home -->
       <div class="menu-item menu-item-primary" (click)="activeSegment = 'overview'">
         <ion-icon name="home-outline" color="primary"></ion-icon>
-        <span>Home</span>
+        <span>{{ t('mobile.home', 'Home') }}</span>
       </div>
 
       <!-- Market Place -->
       <div class="menu-item" (click)="onQuickAction('marketplace')">
         <ion-icon name="storefront-outline" color="success"></ion-icon>
-        <span>Market Place</span>
+        <span>{{ t('dashboard.marketplace', 'Market Place') }}</span>
       </div>
 
       <!-- CR Market Place -->
       <div class="menu-item" (click)="onQuickAction('cr-marketplace')">
         <ion-icon name="restaurant-outline" color="warning"></ion-icon>
-        <span>CR Market Place</span>
+        <span>{{ t('dashboard.cr_marketplace', 'CR Market Place') }}</span>
       </div>
 
       <!-- Amenities (Expandable) -->
       <div class="menu-item menu-item-expandable" (click)="toggleMenuSection('amenities')">
         <ion-icon name="fitness-outline" color="tertiary"></ion-icon>
-        <span>Amenities</span>
+        <span>{{ t('dashboard.amenities', 'Amenities') }}</span>
         <ion-icon class="expand-icon" [name]="isMenuSectionExpanded('amenities') ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
       </div>
       <div class="menu-submenu" *ngIf="isMenuSectionExpanded('amenities')">
@@ -112,13 +117,13 @@
       <!-- NoBroker -->
       <div class="menu-item" (click)="onQuickAction('nobroker')">
         <ion-icon name="business-outline" color="primary"></ion-icon>
-        <span>NoBroker - Internal</span>
+        <span>{{ t('dashboard.nobroker_internal', 'NoBroker - Internal') }}</span>
       </div>
 
       <!-- Posts (Expandable) -->
       <div class="menu-item menu-item-expandable" (click)="toggleMenuSection('posts')">
         <ion-icon name="chatbubbles-outline" color="success"></ion-icon>
-        <span>Posts</span>
+        <span>{{ t('mobile.posts', 'Posts') }}</span>
         <ion-icon class="expand-icon" [name]="isMenuSectionExpanded('posts') ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
       </div>
       <div class="menu-submenu" *ngIf="isMenuSectionExpanded('posts')">
@@ -130,7 +135,7 @@
     </div>
 
     <!-- Quick Actions -->
-    <div class="section-title">Quick Actions</div>
+    <div class="section-title">{{ t('dashboard.quick_access', 'Quick Actions') }}</div>
     <div class="quick-actions-grid">
       <div class="qa-card" *ngFor="let action of quickActions" (click)="onQuickAction(action.key)">
         <ion-icon [name]="action.icon" [color]="action.color"></ion-icon>
@@ -141,7 +146,7 @@
 
     <!-- Pending requests preview -->
     <div class="section-title" *ngIf="pendingRequests.length > 0">
-      Awaiting Your Approval
+      {{ t('mobile.awaiting_approval', 'Awaiting Your Approval') }}
       <ion-badge color="danger">{{ pendingRequests.length }}</ion-badge>
     </div>
     <ion-card *ngFor="let req of pendingRequests.slice(0,2)" class="pending-preview-card" (click)="openApprovalPopup(req)">
@@ -152,19 +157,22 @@
             <div class="pv-name">{{ req.visitorName }}</div>
             <div class="pv-service">{{ getServiceDisplayName(req) }}</div>
           </div>
-          <ion-chip color="danger" class="tap-chip">Tap to act</ion-chip>
+          <ion-chip color="danger" class="tap-chip">{{ t('mobile.tap_to_act', 'Tap to act') }}</ion-chip>
         </div>
       </ion-card-content>
     </ion-card>
 
     <!-- Recent logs preview -->
-    <div class="section-title" *ngIf="approvalLogs.length > 0">Recent Visitors</div>
+    <div class="section-title" *ngIf="approvalLogs.length > 0">{{ t('mobile.recent_visitors', 'Recent Visitors') }}</div>
     <ion-card *ngFor="let log of approvalLogs.slice(0,3)" class="recent-log-card">
       <ion-card-content>
         <div class="log-preview-row">
           <ion-icon [name]="getTypeIcon(log.visitorType)" [color]="getTypeColor(log.visitorType)"></ion-icon>
           <div class="lp-info">
             <span class="lp-name">{{ log.visitorName }}</span>
+            <span class="lp-type">
+              {{ getVisitorTypeLabel(log.visitorType) }}<ng-container *ngIf="getVisitorSubTypeDisplay(log) !== '-'"> • {{ getVisitorSubTypeDisplay(log) }}</ng-container>
+            </span>
             <span class="lp-time">{{ formatTime(log.entryTime) }}</span>
           </div>
           <ion-badge [color]="log.status === 'APPROVED' ? 'success' : 'danger'" class="status-chip">{{ log.status }}</ion-badge>
@@ -172,7 +180,7 @@
       </ion-card-content>
     </ion-card>
 
-    <div class="section-title" *ngIf="posts.length > 0 || announcements.length > 0">Latest Posts</div>
+    <div class="section-title" *ngIf="posts.length > 0 || announcements.length > 0">{{ t('mobile.latest_posts', 'Latest Posts') }}</div>
     <ion-card *ngFor="let post of posts.slice(0,2)" class="post-card" (click)="openPosts('community')">
       <ion-card-content>
         <div class="post-top-row">
@@ -198,6 +206,104 @@
 
   <!-- ===== PENDING REQUESTS TAB ===== -->
   <div *ngIf="activeSegment === 'requests'">
+    <ion-card class="request-card" *ngIf="auth.getRoleCategory() === 'security' || auth.getRoleCategory() === 'society-admin'">
+      <ion-card-header>
+        <ion-card-title>Request Visitor Approval</ion-card-title>
+        <ion-card-subtitle>Create an approval request for a visitor at the gate</ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item>
+          <ion-label position="stacked">Society Name</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.societyName" readonly></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Tower *</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.tower"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Apartment Number *</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.apartmentNumber"></ion-input>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Visitor Type *</ion-label>
+          <ion-select [(ngModel)]="manualApprovalRequest.visitorType">
+            <ion-select-option value="GUEST">Guest</ion-select-option>
+            <ion-select-option value="CAB">Cab</ion-select-option>
+            <ion-select-option value="DELIVERY">Delivery</ion-select-option>
+            <ion-select-option value="VENDOR">Vendor</ion-select-option>
+            <ion-select-option value="VISITING_HELP">Visiting Help</ion-select-option>
+          </ion-select>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Service Sub Category</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.serviceSubCategory" placeholder="Uber, Swiggy, Friend, Technician"></ion-input>
+        </ion-item>
+
+        <ion-item *ngIf="manualApprovalRequest.visitorType === 'DELIVERY'">
+          <ion-label position="stacked">Delivery Service</ion-label>
+          <ion-select [(ngModel)]="manualApprovalRequest.deliveryService">
+            <ion-select-option value="">-- Select Service --</ion-select-option>
+            <ion-select-option *ngFor="let service of deliveryServices" [value]="service">{{ service }}</ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-item *ngIf="manualApprovalRequest.visitorType === 'DELIVERY' && manualApprovalRequest.deliveryService === 'Other'">
+          <ion-label position="stacked">Specify Delivery Service</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.deliveryServiceOther"></ion-input>
+        </ion-item>
+
+        <ion-item *ngIf="manualApprovalRequest.visitorType === 'CAB'">
+          <ion-label position="stacked">Cab Service</ion-label>
+          <ion-select [(ngModel)]="manualApprovalRequest.cabService">
+            <ion-select-option value="">-- Select Service --</ion-select-option>
+            <ion-select-option *ngFor="let service of cabServices" [value]="service">{{ service }}</ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-item *ngIf="manualApprovalRequest.visitorType === 'CAB' && manualApprovalRequest.cabService === 'Other'">
+          <ion-label position="stacked">Specify Cab Service</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.cabServiceOther"></ion-input>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">Visitor Name *</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.visitorName"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Visitor Aadhaar</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.visitorAadhaar"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Visitor Phone</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.visitorPhone"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Resident Phone (for SMS) *</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.residentPhone"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Owner Name</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.ownerName"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Owner Phone</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.ownerPhone"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">ID Proof Details</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.visitorIdProof"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Purpose</ion-label>
+          <ion-input [(ngModel)]="manualApprovalRequest.purpose"></ion-input>
+        </ion-item>
+
+        <ion-button expand="block" color="primary" (click)="submitManualApprovalRequest()">
+          Create Approval Request
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+
     <ion-card class="request-card" *ngIf="auth.getRoleCategory() === 'security' || auth.getRoleCategory() === 'society-admin'">
       <ion-card-header>
         <ion-card-title>Scanner Based Gate Entry</ion-card-title>
@@ -287,6 +393,9 @@
           <ion-icon [name]="getTypeIcon(log.visitorType)" [color]="getTypeColor(log.visitorType)"></ion-icon>
           <div class="log-info">
             <div class="log-name">{{ log.visitorName }}</div>
+            <div class="log-type">
+              {{ getVisitorTypeLabel(log.visitorType) }}<ng-container *ngIf="getVisitorSubTypeDisplay(log) !== '-'"> • {{ getVisitorSubTypeDisplay(log) }}</ng-container>
+            </div>
             <div class="log-meta">{{ formatTime(log.entryTime) }}</div>
           </div>
           <ion-badge [color]="log.status === 'APPROVED' ? 'success' : 'danger'">{{ log.status }}</ion-badge>
@@ -374,19 +483,53 @@
 <div class="approval-overlay" *ngIf="showApprovalPopup" (click)="closeApprovalPopup()">
   <div class="approval-modal" (click)="$event.stopPropagation()">
     <div class="modal-header" [class]="'type-' + (currentApproval?.visitorType || 'GUEST').toUpperCase()">
-      <div class="modal-badge">{{ getServiceDisplayName(currentApproval) }}</div>
-      <div class="modal-name">{{ currentApproval?.visitorName }}</div>
-      <div class="modal-phone">
-        <ion-icon name="call-outline"></ion-icon> {{ currentApproval?.visitorPhone || 'No phone' }}
-      </div>
-      <div class="modal-timer"><ion-icon name="timer-outline"></ion-icon> {{ popupTimer }}s</div>
+      <button class="popup-close-btn" (click)="closeApprovalPopup()">✕</button>
+
+      <div class="popup-header-compact" [ngClass]="getServiceColorClass(currentApproval)">
+        <div class="popup-header-top">
+          <span class="visitor-type-pill" [ngClass]="getVibgyorClass(currentApproval?.visitorType)">
+            {{ getVisitorTypeLabel(currentApproval?.visitorType) }}
+          </span>
+          <span class="visitor-subtype-pill" *ngIf="getVisitorSubTypeDisplay(currentApproval) !== '-'">
+            {{ getVisitorSubTypeDisplay(currentApproval) }}
+          </span>
+        </div>
+
+        <div class="popup-header-main">
+          <span class="vendor-logo-mini">{{ getVendorLogo(currentApproval) }}</span>
+          <div class="popup-header-details">
+            <span class="popup-service">{{ getServiceDisplayName(currentApproval) }}</span>
+            <span class="popup-person">{{ getServicePersonName(currentApproval) }}</span>
+            <span class="popup-contact">{{ currentApproval?.visitorPhone || '-' }}</span>
+          </div>
+        </div>
     </div>
-    <div class="modal-body">
-      <div class="detail-row">
-        <ion-icon name="business-outline" color="medium"></ion-icon>
-        <span>Apt {{ currentApproval?.apartmentNumber }}</span>
+      <div class="modal-timer"><ion-icon name="timer-outline"></ion-icon> {{ popupTimer }}s</div>
       </div>
-      <div class="modal-actions">
+
+      <div class="popup-body-compact">
+        <div class="popup-face-row" *ngIf="popupFaceCapturePreview">
+          <img [src]="popupFaceCapturePreview" alt="Visitor capture" class="popup-face-image" loading="lazy" />
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Apt:</span>
+          <span class="popup-value">{{ currentApproval?.apartmentNumber }}</span>
+      </div>
+      <div class="popup-row">
+        <span class="popup-label">Type:</span>
+        <span class="popup-value">{{ getVisitorTypeLabel(currentApproval?.visitorType) }}</span>
+      </div>
+      <div class="popup-row">
+        <span class="popup-label">Sub-Type:</span>
+        <span class="popup-value">{{ getVisitorSubTypeDisplay(currentApproval) }}</span>
+      </div>
+      <div class="popup-row popup-timer-row">
+        <span class="popup-label">⏱ Timer:</span>
+        <span class="popup-value alarm-timer">{{ popupTimer }}s</span>
+      </div>
+
+      <div class="modal-actions popup-actions-compact expanded">
         <ion-button color="success" size="large" (click)="onApprove()">
           <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon> Approve
         </ion-button>
@@ -394,6 +537,11 @@
           <ion-icon name="close-circle-outline" slot="start"></ion-icon> Reject
         </ion-button>
       </div>
+
+      <div class="popup-warning-compact" *ngIf="popupRequestQueue.length > 1">
+        ⚠️ {{ popupRequestQueue.length - 1 }} more pending
+      </div>
+
       <ion-button fill="clear" size="small" class="dismiss-link" (click)="closeApprovalPopup()">Dismiss</ion-button>
     </div>
   </div>

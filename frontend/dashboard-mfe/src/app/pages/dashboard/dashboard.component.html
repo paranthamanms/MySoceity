@@ -31,7 +31,7 @@
           <input 
             type="text" 
             class="search-input" 
-            placeholder="Search anything - amenities, users, features..."
+            [placeholder]="translate('dashboard.search', 'Search') + ' anything - amenities, users, features...'"
             [(ngModel)]="globalSearchQuery"
             (input)="onGlobalSearch()"
             (focus)="showSearchResults = true"
@@ -57,10 +57,17 @@
 
       <!-- Right Section - Welcome Message with Tower/Flat below + User Profile Icon Menu -->
       <div class="header-right">
+        <div class="header-language-picker">
+          <label for="dashboard-language">{{ translate('common.language', 'Language') }}</label>
+          <select id="dashboard-language" [ngModel]="currentLanguage" (ngModelChange)="setLanguage($event)">
+            <option *ngFor="let lang of languages" [value]="lang.code">{{ lang.label }}</option>
+          </select>
+        </div>
+
         <!-- Welcome Message with Property Info Below -->
         <div class="welcome-container" *ngIf="user">
           <div class="welcome-message">
-            <p>Welcome, {{ user.username }} ({{ getUserTypeDisplay() }})</p>
+            <p>{{ translate('dashboard.welcome', 'Welcome') }}, {{ user.username }} ({{ getUserTypeDisplay() }})</p>
           </div>
           <!-- Tower & Flat Info for Non-Admin Users - positioned below welcome message -->
           <div class="property-location-display" *ngIf="user && !isAdminUser()">
@@ -126,58 +133,62 @@
     <div class="admin-tabs-buttons">
       <button class="tab-button" (click)="selectAdminTab('overview')" [class.active]="adminPanelTab === 'overview'">
         <span class="tab-icon">📊</span>
-        <span class="tab-label">Dashboard View</span>
+        <span class="tab-label">{{ translate('dashboard.dashboard_view', 'Dashboard View') }}</span>
       </button>
       <button class="tab-button" (click)="selectAdminTab('users')" [class.active]="adminPanelTab === 'users'">
         <span class="tab-icon">👥</span>
-        <span class="tab-label">User Management</span>
+        <span class="tab-label">{{ translate('dashboard.user_management', 'User Management') }}</span>
       </button>
       <!-- Audit Logs - Super Admin Only -->
       <button class="tab-button" (click)="selectAdminTab('audit')" [class.active]="adminPanelTab === 'audit'" *ngIf="isSuperAdmin()">
         <span class="tab-icon">📋</span>
-        <span class="tab-label">Audit Logs</span>
+        <span class="tab-label">{{ translate('dashboard.audit_logs', 'Audit Logs') }}</span>
       </button>
       <button class="tab-button" (click)="selectAdminTab('bulk-upload')" [class.active]="adminPanelTab === 'bulk-upload'">
         <span class="tab-icon">📤</span>
-        <span class="tab-label">Bulk User Upload</span>
+        <span class="tab-label">{{ translate('dashboard.bulk_user_upload', 'Bulk User Upload') }}</span>
+      </button>
+      <button class="tab-button" (click)="selectAdminTab('bulk-invite')" [class.active]="adminPanelTab === 'bulk-invite'" *ngIf="isSuperAdmin()">
+        <span class="tab-icon">📨</span>
+        <span class="tab-label">{{ translate('dashboard.bulk_invite', 'Bulk Invite') }}</span>
       </button>
       <!-- Payment & Maintenance - Society Admin Only -->
       <button class="tab-button" (click)="selectAdminTab('payments')" [class.active]="adminPanelTab === 'payments'" *ngIf="isSocietyAdmin()">
         <span class="tab-icon">💳</span>
-        <span class="tab-label">Payment Management</span>
+        <span class="tab-label">{{ translate('dashboard.payment_management', 'Payment Management') }}</span>
       </button>
       <button class="tab-button" (click)="selectAdminTab('maintenance')" [class.active]="adminPanelTab === 'maintenance'" *ngIf="isSocietyAdmin()">
         <span class="tab-icon">🏢</span>
-        <span class="tab-label">Maintenance Payment</span>
+        <span class="tab-label">{{ translate('dashboard.maintenance_payment', 'Maintenance Payment') }}</span>
       </button>
       <!-- Society Announcements - Society Admin Only -->
       <button class="tab-button" (click)="selectAdminTab('society-announcements')" [class.active]="adminPanelTab === 'society-announcements'" *ngIf="isSocietyAdmin()">
         <span class="tab-icon">📢</span>
-        <span class="tab-label">Society Announcements</span>
+        <span class="tab-label">{{ translate('dashboard.society_announcements', 'Society Announcements') }}</span>
       </button>
       <button class="tab-button" (click)="openGuestManagementModal()" *ngIf="isSocietyAdmin()">
         <span class="tab-icon">🚪</span>
-        <span class="tab-label">Guest Management</span>
+        <span class="tab-label">{{ translate('dashboard.guest_approvals', 'Guest Management') }}</span>
       </button>
       <!-- Admin Users - Super Admin Only -->
       <button class="tab-button" (click)="selectAdminTab('admin-users')" [class.active]="adminPanelTab === 'admin-users'" *ngIf="isSuperAdmin()">
         <span class="tab-icon">🔐</span>
-        <span class="tab-label">Admin Users</span>
+        <span class="tab-label">{{ translate('dashboard.admin_users', 'Admin Users') }}</span>
       </button>
       <!-- Security Users - Admins Only -->
       <button class="tab-button" (click)="selectAdminTab('security-users')" [class.active]="adminPanelTab === 'security-users'" *ngIf="isAdminUser()">
         <span class="tab-icon">🛡️</span>
-        <span class="tab-label">Security Users</span>
+        <span class="tab-label">{{ translate('dashboard.security_users', 'Security Users') }}</span>
       </button>
       <!-- Society Management - Super Admin Only -->
       <button class="tab-button" (click)="selectAdminTab('societies')" [class.active]="adminPanelTab === 'societies'" *ngIf="isSuperAdmin()">
         <span class="tab-icon">🏘️</span>
-        <span class="tab-label">Society Management</span>
+        <span class="tab-label">{{ translate('dashboard.society_management', 'Society Management') }}</span>
       </button>
       <!-- Settings - Super Admin Only -->
       <button class="tab-button" (click)="selectAdminTab('settings')" [class.active]="adminPanelTab === 'settings'" *ngIf="isSuperAdmin()">
         <span class="tab-icon">⚙️</span>
-        <span class="tab-label">Settings</span>
+        <span class="tab-label">{{ translate('dashboard.settings', 'Settings') }}</span>
       </button>
     </div>
   </nav>
@@ -187,30 +198,30 @@
     <div class="container">
       <!-- Quick Actions Panel - Hidden for Admin -->
       <section class="quick-actions-panel" *ngIf="!isAdminUser()">
-        <h2><span class="section-icon">⚡</span>Quick Access</h2>
+        <h2><span class="section-icon">⚡</span>{{ translate('dashboard.quick_access', 'Quick Access') }}</h2>
         <div class="actions-grid">
           <!-- Security Guard Widgets - Only Guest Management and User Directory -->
           <ng-container *ngIf="isSecurityGuard()">
-            <div class="action-widget" (click)="openGuestManagementModal()"><span class="action-icon">🚪</span><span class="widget-title-main">Guest Management</span><span class="notification-badge-widget" *ngIf="unreadApprovalsCount > 0">{{ unreadApprovalsCount }}</span></div>
-            <div class="action-widget" (click)="openUserDirectory()"><span class="action-icon">👥</span><span class="widget-title-main">User Directory</span></div>
+            <div class="action-widget" (click)="openGuestManagementModal()"><span class="action-icon">🚪</span><span class="widget-title-main">{{ translate('dashboard.guest_approvals', 'Guest Management') }}</span><span class="notification-badge-widget" *ngIf="unreadApprovalsCount > 0">{{ unreadApprovalsCount }}</span></div>
+            <div class="action-widget" (click)="openUserDirectory()"><span class="action-icon">👥</span><span class="widget-title-main">{{ translate('dashboard.user_directory', 'User Directory') }}</span></div>
           </ng-container>
 
           <!-- Regular User Widgets - All 7 widgets -->
           <ng-container *ngIf="!isSecurityGuard()">
           <div class="action-widget" (click)="navigateToMarketplace()">
             <span class="action-icon">🏪</span>
-            <span class="widget-title-main">Market Place<br><small class="widget-subtitle">Global Players</small></span>
+            <span class="widget-title-main">{{ translate('dashboard.marketplace', 'Market Place') }}<br><small class="widget-subtitle">{{ translate('dashboard.global_players', 'Global Players') }}</small></span>
           </div>
           <div class="action-widget" (click)="openCRMarketplace()">
             <span class="action-icon">🍔</span>
-            <span class="widget-title-main">CR Market Place</span>
+            <span class="widget-title-main">{{ translate('dashboard.cr_marketplace', 'CR Market Place') }}</span>
           </div>
-          <div class="action-widget" (click)="openAmenitiesModal()"><span class="action-icon">🎾</span><span class="widget-title-main">Amenities</span></div>
-          <div class="action-widget" (click)="openRealEstateModal('buy')"><span class="action-icon">�</span><span class="widget-title-main">NoBroker-Internal</span></div>
-          <div class="action-widget"><span class="action-icon">🛒</span><span class="widget-title-main">Orders</span></div>
-          <div class="action-widget"><span class="action-icon">🎫</span><span class="widget-title-main">Bookings</span></div>
-          <div class="action-widget" (click)="openGuestManagementModal()"><span class="action-icon">🚪</span><span class="widget-title-main">Guest Management</span><span class="notification-badge-widget" *ngIf="unreadApprovalsCount > 0">{{ unreadApprovalsCount }}</span></div>
-          <div class="action-widget" (click)="openUserDirectory()"><span class="action-icon">👥</span><span class="widget-title-main">User Directory</span></div>
+          <div class="action-widget" (click)="openAmenitiesModal()"><span class="action-icon">🎾</span><span class="widget-title-main">{{ translate('dashboard.amenities', 'Amenities') }}</span></div>
+          <div class="action-widget" (click)="openRealEstateModal('buy')"><span class="action-icon">�</span><span class="widget-title-main">{{ translate('dashboard.nobroker_internal', 'NoBroker-Internal') }}</span></div>
+          <div class="action-widget"><span class="action-icon">🛒</span><span class="widget-title-main">{{ translate('dashboard.orders', 'Orders') }}</span></div>
+          <div class="action-widget"><span class="action-icon">🎫</span><span class="widget-title-main">{{ translate('dashboard.bookings', 'Bookings') }}</span></div>
+          <div class="action-widget" (click)="openGuestManagementModal()"><span class="action-icon">🚪</span><span class="widget-title-main">{{ translate('dashboard.guest_approvals', 'Guest Management') }}</span><span class="notification-badge-widget" *ngIf="unreadApprovalsCount > 0">{{ unreadApprovalsCount }}</span></div>
+          <div class="action-widget" (click)="openUserDirectory()"><span class="action-icon">👥</span><span class="widget-title-main">{{ translate('dashboard.user_directory', 'User Directory') }}</span></div>
           </ng-container>
         </div>
       </section>
@@ -566,6 +577,108 @@
             <div class="upload-preview" *ngIf="uploadedFile">
               <h3>File Ready: {{ uploadedFile.name }}</h3>
               <button class="cancel-btn" (click)="clearUpload()">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-tab-content" *ngIf="adminPanelTab === 'bulk-invite'">
+          <div class="bulk-invite-section">
+            <h2>Bulk Invite</h2>
+            <p class="section-description">Invite users using SMS, WhatsApp and Email with app download links.</p>
+
+            <div class="message-container">
+              <div class="success-message" *ngIf="inviteSuccessMessage">
+                <span class="message-icon">✓</span>
+                <span class="message-text">{{ inviteSuccessMessage }}</span>
+              </div>
+              <div class="error-message" *ngIf="inviteErrorMessage">
+                <span class="message-icon">✕</span>
+                <span class="message-text">{{ inviteErrorMessage }}</span>
+              </div>
+            </div>
+
+            <div class="invite-config-grid">
+              <div class="invite-card">
+                <h3>Channels</h3>
+                <label class="checkbox-row">
+                  <input type="checkbox" [(ngModel)]="inviteSendSMS">
+                  Send SMS
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" [(ngModel)]="inviteSendWhatsApp">
+                  Send WhatsApp
+                </label>
+                <label class="checkbox-row">
+                  <input type="checkbox" [(ngModel)]="inviteSendEmail">
+                  Send Email
+                </label>
+              </div>
+
+              <div class="invite-card">
+                <h3>App Links</h3>
+                <label>iOS App Link</label>
+                <input class="setting-input" type="text" [(ngModel)]="inviteIosLink" placeholder="https://apps.apple.com/...">
+                <label>Android App Link</label>
+                <input class="setting-input" type="text" [(ngModel)]="inviteAndroidLink" placeholder="https://play.google.com/store/...">
+                <label>Sender Name</label>
+                <input class="setting-input" type="text" [(ngModel)]="inviteSenderName" placeholder="NammaSociety Team">
+              </div>
+            </div>
+
+            <div class="invite-card invite-template">
+              <h3>Message Template</h3>
+              <p class="template-hint">Placeholders: {{'{{name}}'}}, {{'{{androidLink}}'}}, {{'{{iosLink}}'}}, {{'{{senderName}}'}}</p>
+              <textarea class="invite-textarea" [(ngModel)]="inviteMessageTemplate" rows="9"></textarea>
+              <div class="invite-template-actions">
+                <button class="upload-submit-btn" type="button" (click)="saveInviteTemplateConfig()">Save Template</button>
+                <button class="cancel-btn" type="button" (click)="resetInviteTemplateConfig()">Reset Default</button>
+              </div>
+            </div>
+
+            <div class="upload-area">
+              <div class="upload-box" (dragover)="onInviteDragOver($event)" (dragleave)="onInviteDragLeave($event)" (drop)="onInviteFileDrop($event)" [class.dragging]="isInviteDragging">
+                <div class="upload-icon">📨</div>
+                <h3>Drop CSV or Excel file here</h3>
+                <p>or</p>
+                <label class="upload-btn">
+                  Select File
+                  <input type="file" hidden (change)="onInviteFileSelected($event)" accept=".csv,.xlsx,.xls">
+                </label>
+                <p class="upload-info">Supported formats: CSV, XLSX, XLS</p>
+                <div class="upload-quick-actions">
+                  <button class="upload-submit-btn" (click)="submitBulkInvite()" [disabled]="isInviting || !uploadedInviteFile">
+                    <span *ngIf="!isInviting">📤 Send Invites</span>
+                    <span *ngIf="isInviting">⏳ Sending...</span>
+                  </button>
+                  <span class="selected-file" *ngIf="uploadedInviteFile">Selected: {{ uploadedInviteFile.name }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="template-section">
+              <h3>Invite Template File</h3>
+              <p>Download the recipient template and fill in resident details:</p>
+              <button class="download-template-btn" (click)="downloadInviteTemplate()">📥 Download Invite Template</button>
+              <div class="template-preview">
+                <code>name,phoneNumber,email</code>
+              </div>
+              <p class="template-hint">
+                Provide phone numbers for SMS/WhatsApp and email addresses for email invites.
+              </p>
+            </div>
+
+            <div class="upload-preview" *ngIf="uploadedInviteFile">
+              <h3>File Ready: {{ uploadedInviteFile.name }}</h3>
+              <button class="cancel-btn" (click)="clearInviteUpload()" [disabled]="isInviting">Cancel</button>
+            </div>
+
+            <div class="invite-summary" *ngIf="inviteSummary">
+              <h3>Delivery Summary</h3>
+              <p>Total contacts processed: <strong>{{ inviteSummary.totalContacts || 0 }}</strong></p>
+              <p>SMS sent: <strong>{{ inviteSummary.smsSent || 0 }}</strong></p>
+              <p>WhatsApp sent: <strong>{{ inviteSummary.whatsappSent || 0 }}</strong></p>
+              <p>Email sent: <strong>{{ inviteSummary.emailSent || 0 }}</strong></p>
+              <p>Failed recipients: <strong>{{ inviteSummary.failedCount || 0 }}</strong></p>
             </div>
           </div>
         </div>
@@ -2648,8 +2761,12 @@
                     {{ req.visitorName }}
                     <div class="subtext" *ngIf="req.serviceSubCategory">{{ req.serviceSubCategory }}</div>
                   </td>
-                   <td><span class="type-badge" [class]="req.visitorType ? req.visitorType.toLowerCase() : ''">
-                    {{ req.visitorType || '-' }}</span></td>
+                  <td>
+                    <span class="type-badge" [class]="req.visitorType ? req.visitorType.toLowerCase() : ''">
+                      {{ getVisitorTypeLabel(req.visitorType) }}
+                    </span>
+                    <div class="subtext" *ngIf="getVisitorSubTypeDisplay(req) !== '-'">{{ getVisitorSubTypeDisplay(req) }}</div>
+                  </td>
                   <td>{{ req.apartmentNumber }}</td>
                   <td>{{ req.visitorPhone || '-' }}</td>
                   <td>{{ req.requestedBy }}</td>
@@ -2783,17 +2900,13 @@
                     {{ log.visitorName }}
                     <div class="subtext" *ngIf="log.ownerName">Owner: {{ log.ownerName }}</div>
                   </td>
-                   <td><span class="type-badge" [class]="log.visitorType ? log.visitorType.toLowerCase() : ''">
-                    {{ log.visitorType || '-' }}</span></td>
                   <td>
-                    <span *ngIf="log.visitorType === 'DELIVERY' && log.deliveryService" class="service-badge delivery">
-                      {{ log.deliveryService === 'Other' ? log.deliveryServiceOther : log.deliveryService }}
+                    <span class="type-badge" [class]="log.visitorType ? log.visitorType.toLowerCase() : ''">
+                      {{ getVisitorTypeLabel(log.visitorType) }}
                     </span>
-                    <span *ngIf="log.visitorType === 'CAB' && log.cabService" class="service-badge cab">
-                      {{ log.cabService === 'Other' ? log.cabServiceOther : log.cabService }}
-                    </span>
-                    <span *ngIf="log.visitorType !== 'DELIVERY' && log.visitorType !== 'CAB'">-</span>
+                    <div class="subtext" *ngIf="getVisitorSubTypeDisplay(log) !== '-'">{{ getVisitorSubTypeDisplay(log) }}</div>
                   </td>
+                  <td>{{ getVisitorSubTypeDisplay(log) }}</td>
                   <td>{{ log.apartmentNumber }}</td>
                   <td>
                     {{ log.visitorPhone || '-' }}
@@ -2824,7 +2937,10 @@
     <div class="popup-header-compact vibgyor-bg" [ngClass]="getServiceColorClass(currentApprovalRequest)">
       <div class="popup-header-top">
         <span class="visitor-type-pill vibgyor-pill" [ngClass]="getVibgyorClass(currentApprovalRequest.visitorType)">
-          {{ getServiceDisplayName(currentApprovalRequest) }}
+          {{ getVisitorTypeLabel(currentApprovalRequest.visitorType) }}
+        </span>
+        <span class="visitor-subtype-pill" *ngIf="getVisitorSubTypeDisplay(currentApprovalRequest) !== '-'">
+          {{ getVisitorSubTypeDisplay(currentApprovalRequest) }}
         </span>
       </div>
       <div class="popup-header-main">
@@ -2843,6 +2959,14 @@
       <div class="popup-row">
         <span class="popup-label">Apt:</span>
         <span class="popup-value">{{ currentApprovalRequest.apartmentNumber }}</span>
+      </div>
+      <div class="popup-row">
+        <span class="popup-label">Type:</span>
+        <span class="popup-value">{{ getVisitorTypeLabel(currentApprovalRequest.visitorType) }}</span>
+      </div>
+      <div class="popup-row">
+        <span class="popup-label">Sub-Type:</span>
+        <span class="popup-value">{{ getVisitorSubTypeDisplay(currentApprovalRequest) }}</span>
       </div>
       <div class="popup-row popup-timer-row">
         <span class="alarm-icon">🔔</span>

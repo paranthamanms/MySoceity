@@ -1,6 +1,7 @@
 package com.mysociety.user.controller;
 
 import com.mysociety.user.model.UserProfile;
+import com.mysociety.user.service.BulkInviteService;
 import com.mysociety.user.service.UserProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,11 +18,13 @@ import java.util.Map;
 public class UserProfileController {
 
     private UserProfileService profileService;
+    private BulkInviteService bulkInviteService;
     private RestTemplate restTemplate;
 
     @Autowired
-    public UserProfileController(UserProfileService profileService, RestTemplate restTemplate) {
+    public UserProfileController(UserProfileService profileService, BulkInviteService bulkInviteService, RestTemplate restTemplate) {
         this.profileService = profileService;
+        this.bulkInviteService = bulkInviteService;
         this.restTemplate = restTemplate;
     }
 
@@ -219,6 +222,59 @@ public class UserProfileController {
         } catch (Exception e) {
             response.put("success", false);
             response.put("message", "Bulk upload failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PostMapping("/api/user/invites/bulk")
+    public ResponseEntity<Map<String, Object>> bulkInviteUsers(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(defaultValue = "true") boolean sendSMS,
+            @RequestParam(defaultValue = "true") boolean sendWhatsApp,
+            @RequestParam(defaultValue = "true") boolean sendEmail,
+            @RequestParam(required = false) String iosLink,
+            @RequestParam(required = false) String androidLink,
+            @RequestParam(required = false) String senderName,
+            @RequestParam(required = false) String messageTemplate) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            if (file.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "File is empty");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String fileName = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
+            if (!fileName.endsWith(".csv") && !fileName.endsWith(".xlsx") && !fileName.endsWith(".xls")) {
+                response.put("success", false);
+                response.put("message", "Please upload CSV or Excel file (.csv, .xlsx, .xls)");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            if (!sendSMS && !sendWhatsApp && !sendEmail) {
+                response.put("success", false);
+                response.put("message", "Select at least one invite channel");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            Map<String, Object> result = bulkInviteService.processBulkInvites(
+                    file,
+                    sendSMS,
+                    sendWhatsApp,
+                    sendEmail,
+                    iosLink,
+                    androidLink,
+                    senderName,
+                    messageTemplate
+            );
+
+            response.putAll(result);
+            HttpStatus status = Boolean.TRUE.equals(result.get("success")) ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Bulk invite failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }

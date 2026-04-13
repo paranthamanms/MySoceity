@@ -1,3 +1,69 @@
 <ion-app>
   <ion-router-outlet></ion-router-outlet>
+
+  <div class="resident-approval-overlay" *ngIf="showResidentApprovalPopup" (click)="closeResidentApprovalPopup()">
+    <div class="resident-approval-modal" (click)="$event.stopPropagation()">
+      <div class="resident-header" [ngClass]="getServiceColorClass(currentResidentApproval)">
+        <div class="popup-header-top">
+          <span class="visitor-type-pill" [ngClass]="getVibgyorClass(currentResidentApproval?.visitorType)">
+            {{ getVisitorTypeLabel(currentResidentApproval?.visitorType) }}
+          </span>
+          <span class="visitor-subtype-pill" *ngIf="getVisitorSubTypeDisplay(currentResidentApproval) !== '-'">
+            {{ getVisitorSubTypeDisplay(currentResidentApproval) }}
+          </span>
+        </div>
+
+        <div class="popup-header-main">
+          <span class="vendor-logo-mini">{{ getVendorLogo(currentResidentApproval) }}</span>
+          <div class="popup-header-details">
+            <span class="popup-service">{{ getServiceDisplayName(currentResidentApproval) }}</span>
+            <span class="popup-person">{{ getServicePersonName(currentResidentApproval) }}</span>
+            <span class="popup-contact">{{ currentResidentApproval?.visitorPhone || '-' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="resident-body">
+        <div class="resident-face" *ngIf="canShowFaceCaptureImage(residentPopupFaceCapturePreview)">
+          <img [src]="residentPopupFaceCapturePreview" alt="Visitor face preview">
+        </div>
+
+        <div class="resident-row">
+          <span class="label">Type</span>
+          <span class="value">{{ getVisitorTypeLabel(currentResidentApproval?.visitorType) }}</span>
+        </div>
+        <div class="resident-row">
+          <span class="label">Sub-Type</span>
+          <span class="value">{{ getVisitorSubTypeDisplay(currentResidentApproval) }}</span>
+        </div>
+        <div class="resident-row">
+          <span class="label">Apartment</span>
+          <span class="value">{{ currentResidentApproval?.apartmentNumber || '-' }}</span>
+        </div>
+        <div class="resident-row timer">
+          <span class="label">Timer</span>
+          <span class="value">{{ residentPopupTimer }}s</span>
+        </div>
+
+        <div class="queue-hint" *ngIf="getPendingQueueCount() > 0">
+          {{ getPendingQueueCount() }} more pending request(s)
+        </div>
+
+        <div class="resident-actions">
+          <ion-button color="success" (click)="onApproveResidentPopup()">
+            <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+            Approve
+          </ion-button>
+          <ion-button color="danger" (click)="onRejectResidentPopup()">
+            <ion-icon slot="start" name="close-circle-outline"></ion-icon>
+            Reject
+          </ion-button>
+        </div>
+
+        <ion-button fill="clear" class="dismiss-btn" (click)="closeResidentApprovalPopup()">
+          Dismiss
+        </ion-button>
+      </div>
+    </div>
+  </div>
 </ion-app>
